@@ -1,0 +1,35 @@
+
+Running Gradle task 'assembleRelease'...                        
+Your project is configured with Android NDK 26.3.11579264, but the following plugin(s) depend on a different Android NDK version:
+- geolocator_android requires Android NDK 27.0.12077973
+- package_info_plus requires Android NDK 27.0.12077973
+- sensors_plus requires Android NDK 27.0.12077973
+Fix this issue by using the highest Android NDK version (they are backward compatible).
+Add the following to C:\Users\Administrator\Desktop\Projelerim\RunningTracker\sprint_tracker\android\app\build.gradle.kts:
+
+    android {
+        ndkVersion = "27.0.12077973"
+        ...
+    }
+
+../../../../AppData/Local/Pub/Cache/hosted/pub.dev/flutter_riverpod-3.2.1/lib/src/core/provider_scope.dart:364:51: Error: No named parameter with the name 'scheduleNewFrame'.
+    WidgetsBinding.instance.scheduleFrameCallback(scheduleNewFrame: false, (_) {
+                                                  ^^^^^^^^^^^^^^^^
+Target kernel_snapshot_program failed: Exception
+
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:compileFlutterBuildRelease'.
+> Process 'command 'D:\flutter\flutter\bin\flutter.bat'' finished with non-zero exit value 1
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+BUİLD FAILED in 11s
+Running Gradle task 'assembleRelease'...                           11,4s
+Gradle task assembleRelease failed with exit code 1
