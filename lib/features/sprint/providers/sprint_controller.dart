@@ -5,6 +5,15 @@ import '../../../core/services/location_service.dart';
 
 enum SprintState { calibrating, ready, countdown, running, finished }
 
+/// Why GPS can't be trusted right now (shown as a warning banner).
+enum GpsIssue {
+  none,
+  permissionDenied, // Location permission not granted
+  disabled, // Location / GPS switched off on the device
+  noFix, // Calibration timed out without a single fix
+  weak, // Calibration timed out with only poor fixes
+}
+
 class SprintData {
   final SprintState state;
   final double currentSpeed; // m/s
@@ -15,6 +24,7 @@ class SprintData {
   final String debugLog;
   final double? gpsAccuracy; // Last fix horizontal accuracy (m), null = no fix
   final bool gpsLost;
+  final GpsIssue gpsIssue;
 
   SprintData({
     required this.state,
@@ -26,6 +36,7 @@ class SprintData {
     this.debugLog = '',
     this.gpsAccuracy,
     this.gpsLost = false,
+    this.gpsIssue = GpsIssue.none,
   });
 
   SprintData copyWith({
@@ -38,6 +49,7 @@ class SprintData {
     String? debugLog,
     double? gpsAccuracy,
     bool? gpsLost,
+    GpsIssue? gpsIssue,
   }) {
     return SprintData(
       state: state ?? this.state,
@@ -49,6 +61,7 @@ class SprintData {
       debugLog: debugLog ?? this.debugLog,
       gpsAccuracy: gpsAccuracy ?? this.gpsAccuracy,
       gpsLost: gpsLost ?? this.gpsLost,
+      gpsIssue: gpsIssue ?? this.gpsIssue,
     );
   }
 }
@@ -70,24 +83,29 @@ class SprintController extends StateNotifier<SprintData> {
   Timer? _runTimer;
   Duration _prevElapsed = Duration.zero;
   double _prevDistance = 0.0;
+  int _calibrationGen = 0; // Ignores timeouts of an earlier calibration
 
   // Configuration
   final double targetDistance = 100.0; // 100 meters sprint
+  static const double calibratedAccuracyM = 10.0;
+  static const Duration calibrationTimeout = Duration(seconds: 15);
 
   SprintController(this._fusionService, this._locationService)
       : super(SprintData(state: SprintState.calibrating));
 
   Future<void> startCalibration() async {
+    final gen = ++_calibrationGen;
     state = SprintData(state: SprintState.calibrating);
     _calibrationSub?.cancel();
 
     // Location permission must be granted before any GNSS stream is opened.
     final hasPermission = await _locationService.handlePermissions();
-    if (!mounted) return;
+    if (!mounted || gen != _calibrationGen) return;
     if (!hasPermission) {
+      final enabled = await _locationService.isLocationEnabled();
+      if (!mounted || gen != _calibrationGen) return;
       state = state.copyWith(
-        debugLog: 'Location permission denied or location is off.\n'
-            'Enable it and reopen this screen.',
+        gpsIssue: enabled ? GpsIssue.permissionDenied : GpsIssue.disabled,
       );
       return;
     }
@@ -97,23 +115,46 @@ class SprintController extends StateNotifier<SprintData> {
     // otherwise the first seconds of the sprint would have no fixes.
     bool isCalibrated = false;
 
-    _calibrationSub = _locationService.getPositionStream().listen((position) {
-      if (!mounted) return;
-      state = state.copyWith(gpsAccuracy: position.accuracy);
-      if (!isCalibrated && position.accuracy <= 10.0) {
-        isCalibrated = true;
-        state = state.copyWith(state: SprintState.ready);
-      }
-    });
+    _calibrationSub = _locationService.getPositionStream().listen(
+      (position) {
+        if (!mounted) return;
+        final good = position.accuracy <= calibratedAccuracyM;
+        state = state.copyWith(
+          gpsAccuracy: position.accuracy,
+          // A good fix arriving late clears an earlier warning.
+          gpsIssue: good ? GpsIssue.none : null,
+        );
+        if (!isCalibrated && good) {
+          isCalibrated = true;
+          state = state.copyWith(state: SprintState.ready);
+        }
+      },
+      onError: (Object _) {
+        if (!mounted) return;
+        state = state.copyWith(gpsIssue: GpsIssue.disabled);
+      },
+    );
 
-    // Timeout: If we can't get good GPS in 15 seconds, just let the user run anyway
-    Future.delayed(const Duration(seconds: 15), () {
-      if (!mounted) return;
+    // Timeout: let the user run anyway, but say why the result may be off.
+    Future.delayed(calibrationTimeout, () {
+      if (!mounted || gen != _calibrationGen) return;
       if (!isCalibrated && state.state == SprintState.calibrating) {
         isCalibrated = true;
-        state = state.copyWith(state: SprintState.ready);
+        state = state.copyWith(
+          state: SprintState.ready,
+          gpsIssue: state.gpsAccuracy == null ? GpsIssue.noFix : GpsIssue.weak,
+        );
       }
     });
+  }
+
+  /// Opens the system screen that fixes the current [GpsIssue].
+  Future<void> openGpsSettings() async {
+    if (state.gpsIssue == GpsIssue.permissionDenied) {
+      await _locationService.openAppSettings();
+    } else {
+      await _locationService.openLocationSettings();
+    }
   }
 
   /// Abort a run without saving a result.

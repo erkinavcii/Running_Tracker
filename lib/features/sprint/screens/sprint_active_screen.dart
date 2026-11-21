@@ -56,6 +56,10 @@ class _SprintActiveScreenState extends ConsumerState<SprintActiveScreen> {
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
                 children: [
                   _StatusHeader(data: data),
+                  if (_GpsWarning.visibleFor(data)) ...[
+                    const SizedBox(height: 16),
+                    _GpsWarning(data: data, controller: _controller),
+                  ],
                   const SizedBox(height: 20),
                   _TimeDisplay(data: data),
                   const SizedBox(height: 28),
@@ -184,6 +188,127 @@ class _GpsChip extends StatelessWidget {
   }
 }
 
+/// Explains why GPS can't be trusted and offers a fix.
+class _GpsWarning extends StatelessWidget {
+  final SprintData data;
+  final SprintController controller;
+
+  const _GpsWarning({required this.data, required this.controller});
+
+  static bool visibleFor(SprintData d) =>
+      d.gpsIssue != GpsIssue.none ||
+      (d.gpsLost && d.state == SprintState.running);
+
+  @override
+  Widget build(BuildContext context) {
+    final c = AppColors.of(context);
+    final acc = data.gpsAccuracy;
+
+    final (IconData icon, String title, String body, bool settings) =
+        switch (data.gpsIssue) {
+      GpsIssue.permissionDenied => (
+          Icons.location_disabled_rounded,
+          'Location permission needed',
+          'Allow precise location so speed and distance can be measured.',
+          true,
+        ),
+      GpsIssue.disabled => (
+          Icons.location_off_rounded,
+          'Location is turned off',
+          'Turn on location (GPS) in the system settings to start.',
+          true,
+        ),
+      GpsIssue.noFix => (
+          Icons.gps_off_rounded,
+          'No GPS signal',
+          'No satellite fix after ${SprintController.calibrationTimeout.inSeconds} s. '
+              'Move outside, away from buildings. The timer will run, '
+              'but speed and distance will stay at zero.',
+          false,
+        ),
+      GpsIssue.weak => (
+          Icons.gps_not_fixed_rounded,
+          'Weak GPS signal',
+          'Accuracy is only ±${acc?.toStringAsFixed(0) ?? '?'} m. '
+              'Results may be off by several metres.',
+          false,
+        ),
+      GpsIssue.none => (
+          Icons.gps_off_rounded,
+          'GPS signal lost',
+          'Speed fades out until the signal returns.',
+          false,
+        ),
+    };
+
+    final canRetry = data.state == SprintState.ready ||
+        data.state == SprintState.calibrating;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
+      decoration: BoxDecoration(
+        color: c.warn.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: c.warn.withValues(alpha: 0.6)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(icon, color: c.warn, size: 22),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 15.5,
+                        fontWeight: FontWeight.w700,
+                        color: c.ink,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      body,
+                      style: TextStyle(fontSize: 13.5, height: 1.35, color: c.muted),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (canRetry && data.gpsIssue != GpsIssue.none)
+            Padding(
+              padding: const EdgeInsets.only(left: 22),
+              child: Wrap(
+                alignment: WrapAlignment.end,
+                children: [
+                  if (settings)
+                    TextButton(
+                      onPressed: controller.openGpsSettings,
+                      style: TextButton.styleFrom(foregroundColor: c.ink),
+                      child: const Text('Open settings'),
+                    ),
+                  TextButton(
+                    onPressed: controller.startCalibration,
+                    style: TextButton.styleFrom(foregroundColor: c.warn),
+                    child: const Text('Try again'),
+                  ),
+                ],
+              ),
+            )
+          else
+            const SizedBox(height: 4),
+        ],
+      ),
+    );
+  }
+}
+
 class _StatusHeader extends StatelessWidget {
   final SprintData data;
 
@@ -201,7 +326,7 @@ class _StatusHeader extends StatelessWidget {
       SprintState.ready => (
           Picto.start,
           'Ready',
-          'Take your mark. The clock starts after 3 s.',
+          'Take your mark: 3-second countdown.',
         ),
       SprintState.countdown => (Picto.start, 'Set…', 'Hold still.'),
       SprintState.running => (
@@ -287,21 +412,27 @@ class _TimeDisplay extends StatelessWidget {
           if (isCountdown)
             Text('${data.countdown}', style: big.copyWith(color: c.accent))
           else
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic,
-              children: [
-                Text(_format(data.elapsed), style: big),
-                const SizedBox(width: 6),
-                Text(
-                  's',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w700,
-                    color: c.muted,
+            // Shrinks on narrow screens or long times like 1:02.34.
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  Text(_format(data.elapsed), style: big),
+                  const SizedBox(width: 6),
+                  Text(
+                    's',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w700,
+                      color: c.muted,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
         ],
       ),
@@ -551,6 +682,14 @@ class _ActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = AppColors.of(context);
     switch (data.state) {
+      case SprintState.calibrating
+          when data.gpsIssue == GpsIssue.permissionDenied ||
+              data.gpsIssue == GpsIssue.disabled:
+        return OutlinedButton.icon(
+          onPressed: controller.startCalibration,
+          icon: const Icon(Icons.refresh_rounded),
+          label: const Text('TRY AGAIN'),
+        );
       case SprintState.calibrating:
         return OutlinedButton.icon(
           onPressed: null,
@@ -565,7 +704,9 @@ class _ActionButton extends StatelessWidget {
         return FilledButton.icon(
           onPressed: controller.startCountdown,
           icon: const Icon(Icons.flag_rounded),
-          label: const Text('START SPRINT'),
+          label: Text(
+            data.gpsIssue == GpsIssue.none ? 'START SPRINT' : 'START ANYWAY',
+          ),
         );
       case SprintState.countdown:
       case SprintState.running:

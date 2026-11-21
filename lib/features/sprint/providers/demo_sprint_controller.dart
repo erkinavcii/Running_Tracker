@@ -4,7 +4,8 @@ import 'sprint_controller.dart';
 
 /// Static, randomised sprint data for store screenshots and README images.
 ///
-/// Enabled with `--dart-define=DEMO=running` (or `ready` / `finished`);
+/// Enabled with `--dart-define=DEMO=running` (or `ready` / `finished` /
+/// `nogps`);
 /// it never touches GPS or sensors.
 const demoMode = String.fromEnvironment('DEMO');
 
@@ -48,6 +49,8 @@ class DemoSprintController extends SprintController {
           gpsAccuracy: accuracy,
           debugLog: log,
         );
+      case 'nogps':
+        return SprintData(state: SprintState.ready, gpsIssue: GpsIssue.noFix);
       default:
         return SprintData(state: SprintState.ready, gpsAccuracy: accuracy);
     }

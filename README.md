@@ -26,7 +26,7 @@
 - **Sprint mode (100 m):** GPS calibration, 3-second countdown, auto-stop at the finish line.
 - **Interpolated finish time:** the moment the 100 m line is crossed is interpolated between samples instead of using the next GPS tick.
 - **Live metrics:** speed, top speed, distance, average speed, and a lane-style progress bar.
-- **GPS status chip:** current horizontal accuracy, "No fix" and "GPS lost" states.
+- **GPS status chip and warnings:** current accuracy, plus clear banners for missing permission, location off, no fix, weak signal and signal lost.
 - **Telemetry panel:** raw GPS speed ± its accuracy, filtered speed and actual fix rate (Hz).
 - **CSV logs** for every run in `Documents/SprintLogs/` (accelerometer, filter state and every GNSS fix).
 - **Endurance mode:** planned.
@@ -91,7 +91,7 @@ Run outside with a clear view of the sky; calibration waits for a fix better tha
 Shows a static, randomised sprint without touching GPS. Useful for screenshots and UI work:
 
 ```bash
-flutter run --dart-define=DEMO=running    # or: ready, finished
+flutter run --dart-define=DEMO=running    # or: ready, finished, nogps
 ```
 
 ### Windows build note
