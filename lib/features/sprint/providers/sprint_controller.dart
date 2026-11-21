@@ -97,6 +97,8 @@ class SprintController extends StateNotifier<SprintData> {
   double _prevDistance = 0.0;
   int _calibrationGen = 0; // Ignores timeouts of an earlier calibration
   DateTime? _runStartedAt;
+  final List<int> _splitTimesMs = []; // cumulative ms at 10, 20 … m
+  static const double splitStepM = 10.0;
   GpsQuality _runGpsQuality = GpsQuality.good;
 
   // Configuration
@@ -211,6 +213,7 @@ class SprintController extends StateNotifier<SprintData> {
     _prevElapsed = Duration.zero;
     _prevDistance = 0.0;
     _runStartedAt = DateTime.now();
+    _splitTimesMs.clear();
     _runGpsQuality = switch (state.gpsIssue) {
       GpsIssue.none => GpsQuality.good,
       GpsIssue.weak => GpsQuality.weak,
@@ -245,6 +248,8 @@ class SprintController extends StateNotifier<SprintData> {
     // Finish line crossed between two fusion samples: interpolate the exact
     // crossing time instead of using the (later) sample time.
     // Only trust it once at least one real GNSS fix arrived.
+    _recordSplits(data);
+
     if (data.gpsFixCount > 0 && data.distanceMeters >= targetDistance) {
       final dd = data.distanceMeters - _prevDistance;
       final frac = dd > 0 ? (targetDistance - _prevDistance) / dd : 1.0;
@@ -274,6 +279,22 @@ class SprintController extends StateNotifier<SprintData> {
       gpsLost: data.gpsLost,
       debugLog: data.rawDebugLog.isNotEmpty ? data.rawDebugLog : null,
     );
+  }
+
+  /// Interpolated crossing time of every 10 m mark passed since the last
+  /// sample (same method as the finish line).
+  void _recordSplits(FusionData data) {
+    if (data.gpsFixCount == 0) return;
+    final dd = data.distanceMeters - _prevDistance;
+    if (dd <= 0) return;
+    final dtUs = (data.elapsed - _prevElapsed).inMicroseconds;
+    while (_splitTimesMs.length * splitStepM + splitStepM <= targetDistance) {
+      final mark = (_splitTimesMs.length + 1) * splitStepM;
+      if (data.distanceMeters < mark) break;
+      final frac = ((mark - _prevDistance) / dd).clamp(0.0, 1.0);
+      final at = _prevElapsed + Duration(microseconds: (dtUs * frac).round());
+      _splitTimesMs.add(at.inMilliseconds);
+    }
   }
 
   void stopRunning() {
@@ -311,6 +332,7 @@ class SprintController extends StateNotifier<SprintData> {
         maxSpeedMps: result.maxSpeed,
         gpsQuality: _runGpsQuality,
         track: _fusionService.track,
+        splitTimesMs: List.of(_splitTimesMs),
         kcal: weight == null || secs <= 0
             ? null
             : kcalForInterval(

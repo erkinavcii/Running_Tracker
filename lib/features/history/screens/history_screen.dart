@@ -3,147 +3,205 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/format.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/weeks.dart';
 import '../../../core/widgets/common.dart';
 import '../../../core/widgets/pictogram.dart';
 import '../../../data/database.dart';
+import '../../../data/records.dart';
 import '../../../data/run_repository.dart';
+import '../widgets/run_card.dart';
+import '../widgets/weekly_bars.dart';
+import 'run_detail_screen.dart';
 
-/// Basic run list. Weekly grouping, detail view and charts come in phase B.
+/// Runs swiped away but still undoable; deleted for real when the
+/// snackbar closes without "Undo".
+final pendingDeletesProvider = StateProvider<Set<int>>((ref) => {});
+
+/// Removes a run with an undo window. Shared by the list and detail views.
+void deleteRunWithUndo(BuildContext context, WidgetRef ref, Run run) {
+  // Captured now: the calling screen (e.g. detail) may be gone when the
+  // snackbar closes.
+  final pending = ref.read(pendingDeletesProvider.notifier);
+  final repo = ref.read(runRepositoryProvider);
+  pending.update((s) => {...s, run.id});
+
+  final messenger = ScaffoldMessenger.of(context);
+  messenger.hideCurrentSnackBar();
+  messenger
+      .showSnackBar(SnackBar(
+        content: Text(
+          '${run.type == RunType.sprint ? 'Sprint' : 'Run'} deleted',
+        ),
+        action: SnackBarAction(label: 'UNDO', onPressed: () {}),
+        duration: const Duration(seconds: 5),
+      ))
+      .closed
+      .then((reason) async {
+    if (reason != SnackBarClosedReason.action) {
+      await repo.deleteRun(run.id);
+    }
+    pending.update((s) => {...s}..remove(run.id));
+  });
+}
+
 class HistoryScreen extends ConsumerWidget {
   const HistoryScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final runs = ref.watch(runsProvider);
+    final pending = ref.watch(pendingDeletesProvider);
+    final records = ref.watch(recordsProvider).valueOrNull ?? RecordsSummary.empty;
     final miles = ref.watch(profileProvider).valueOrNull?.useMiles ?? false;
 
     return SafeArea(
       child: runs.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('$e')),
-        data: (list) => ListView(
-          padding: const EdgeInsets.fromLTRB(20, 28, 20, 24),
-          children: [
-            PageTitle(
-              'History',
-              subtitle: list.isEmpty
-                  ? null
-                  : '${list.length} ${list.length == 1 ? 'run' : 'runs'}',
-            ),
-            const SizedBox(height: 20),
-            if (list.isEmpty)
-              const EmptyState(
-                picto: Picto.jog,
-                title: 'No runs yet',
-                body: 'Finished sprints are saved here automatically.',
-              )
-            else
-              for (final run in list) ...[
-                _RunCard(run: run, miles: miles),
-                const SizedBox(height: 10),
+        data: (all) {
+          final list = all.where((r) => !pending.contains(r.id)).toList();
+          final now = DateTime.now();
+          final weeks = groupByWeek(
+            list,
+            startedAt: (Run r) => r.startedAt,
+            distanceM: (Run r) => r.distanceM,
+            moving: (Run r) => Duration(milliseconds: r.movingMs),
+          );
+
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(20, 28, 20, 24),
+            children: [
+              const PageTitle('History'),
+              const SizedBox(height: 20),
+              if (list.isEmpty)
+                const EmptyState(
+                  picto: Picto.jog,
+                  title: 'No runs yet',
+                  body: 'Finished sprints are saved here automatically.',
+                )
+              else ...[
+                SurfaceCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SectionLabel('Last 8 weeks'),
+                      const SizedBox(height: 12),
+                      WeeklyBars(
+                        weeks: weeklyTotals(
+                          list,
+                          now: now,
+                          startedAt: (Run r) => r.startedAt,
+                          distanceM: (Run r) => r.distanceM,
+                        ),
+                        miles: miles,
+                      ),
+                    ],
+                  ),
+                ),
+                for (final w in weeks) ...[
+                  const SizedBox(height: 24),
+                  _WeekHeader(group: w, now: now, miles: miles),
+                  const SizedBox(height: 10),
+                  for (final run in w.items) ...[
+                    Dismissible(
+                      key: ValueKey('run-${run.id}'),
+                      direction: DismissDirection.endToStart,
+                      background: const _DeleteBackground(),
+                      onDismissed: (_) => deleteRunWithUndo(context, ref, run),
+                      child: RunCard(
+                        run: run,
+                        miles: miles,
+                        isPr: records.isPr(run.id),
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => RunDetailScreen(runId: run.id),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+                ],
+                const SizedBox(height: 4),
+                Text(
+                  'Swipe left to delete.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.of(context).muted,
+                  ),
+                ),
               ],
-          ],
-        ),
+            ],
+          );
+        },
       ),
     );
   }
 }
 
-class _RunCard extends StatelessWidget {
-  final Run run;
+class _WeekHeader extends StatelessWidget {
+  final WeekGroup<Run> group;
+  final DateTime now;
   final bool miles;
 
-  const _RunCard({required this.run, required this.miles});
+  const _WeekHeader({
+    required this.group,
+    required this.now,
+    required this.miles,
+  });
 
   @override
   Widget build(BuildContext context) {
     final c = AppColors.of(context);
-    final sprint = run.type == RunType.sprint;
-    final main = sprint
-        ? '${formatSprintTime(Duration(milliseconds: run.sprintTimeMs ?? run.elapsedMs))} s'
-        : formatDistance(run.distanceM, miles: miles);
-    final details = <String>[
-      if (sprint) formatDistance(run.distanceM, miles: miles),
-      if (!sprint) formatClock(Duration(milliseconds: run.movingMs)),
-      if (sprint) 'top ${formatSpeed(run.maxSpeedMps, miles: miles)}',
-      if (!sprint) formatPace(run.avgSpeedMps, miles: miles),
-      if (run.kcal != null) '≈ ${run.kcal!.round()} kcal',
-    ];
-
-    return SurfaceCard(
-      padding: const EdgeInsets.fromLTRB(14, 14, 16, 14),
-      child: Row(
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: c.background,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: c.line),
-            ),
-            alignment: Alignment.center,
-            child: Pictogram(
-              sprint ? Picto.sprint : Picto.jog,
-              size: 34,
-              color: c.accent,
-            ),
+    final n = group.items.length;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.baseline,
+      textBaseline: TextBaseline.alphabetic,
+      children: [
+        Text(
+          weekLabel(group.start, now: now),
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: c.ink,
           ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      sprint ? 'Sprint' : 'Run',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: c.ink,
-                      ),
-                    ),
-                    if (run.gpsQuality != GpsQuality.good) ...[
-                      const SizedBox(width: 8),
-                      Icon(
-                        run.gpsQuality == GpsQuality.none
-                            ? Icons.gps_off_rounded
-                            : Icons.gps_not_fixed_rounded,
-                        size: 15,
-                        color: c.warn,
-                      ),
-                    ],
-                  ],
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  formatRunDate(run.startedAt),
-                  style: TextStyle(fontSize: 12.5, color: c.muted),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  details.join(' · '),
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: c.muted,
-                    fontFeatures: tabularFigures,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Text(
-            main,
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            '${formatDistance(group.distanceM, miles: miles)} · '
+            '${formatClock(group.moving)} · $n ${n == 1 ? 'run' : 'runs'}',
+            textAlign: TextAlign.end,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w800,
-              color: c.ink,
+              fontSize: 12.5,
+              color: c.muted,
               fontFeatures: tabularFigures,
             ),
           ),
-        ],
+        ),
+      ],
+    );
+  }
+}
+
+class _DeleteBackground extends StatelessWidget {
+  const _DeleteBackground();
+
+  @override
+  Widget build(BuildContext context) {
+    final c = AppColors.of(context);
+    return Container(
+      alignment: Alignment.centerRight,
+      padding: const EdgeInsets.only(right: 24),
+      decoration: BoxDecoration(
+        color: c.warn.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(16),
       ),
+      child: Icon(Icons.delete_outline_rounded, color: c.warn),
     );
   }
 }

@@ -75,7 +75,7 @@ best_efforts    runId, kind(100m|400m|1k|5k|10k|21k|top_speed|longest),
 - [x] Sprint bitince sonuç **otomatik kaydedilir** (tip=sprint, süre, maks hız, ort. hız, GPS kalitesi, `track_points`).
 - [x] Testler: DAO'lar (bellek içi veritabanı), migration.
 
-## 4. Faz B: Koşu geçmişi ve kişisel rekorlar
+## 4. Faz B: Koşu geçmişi ve kişisel rekorlar ✔
 
 **Geçmiş ekranı**
 - Haftalara göre gruplanmış liste; her haftanın başlığında toplam km, süre ve koşu sayısı.
@@ -87,7 +87,7 @@ best_efforts    runId, kind(100m|400m|1k|5k|10k|21k|top_speed|longest),
 - Özet kutuları: mesafe, süre, hareket süresi, ort./maks hız, tempo, kalori.
 - Sprint için: 10 m'lik ara süreler ve hız-mesafe eğrisi (CSV'deki Kalman verisinden).
 - Endurance için: km ara süreleri tablosu, tempo grafiği, harita (Faz E).
-- Not ekleme; GPX dışa aktarma (Faz F).
+- Not ekleme ✔; GPX dışa aktarma (Faz F).
 
 **Rekorlar ekranı**
 - Sprint: en iyi 100 m süresi, en yüksek hız.

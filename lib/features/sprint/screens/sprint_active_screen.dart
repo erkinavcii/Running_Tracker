@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/pictogram.dart';
+import '../../../data/effort_labels.dart';
+import '../../../data/run_repository.dart';
 import '../providers/sprint_controller.dart';
 
 class SprintActiveScreen extends ConsumerStatefulWidget {
@@ -56,6 +58,7 @@ class _SprintActiveScreenState extends ConsumerState<SprintActiveScreen> {
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
                 children: [
                   _StatusHeader(data: data),
+                  if (data.savedRunId != null) _NewPrBanner(runId: data.savedRunId!),
                   if (_GpsWarning.visibleFor(data)) ...[
                     const SizedBox(height: 16),
                     _GpsWarning(data: data, controller: _controller),
@@ -304,6 +307,56 @@ class _GpsWarning extends StatelessWidget {
           else
             const SizedBox(height: 4),
         ],
+      ),
+    );
+  }
+}
+
+/// Shown on the result screen when the saved sprint set a record.
+class _NewPrBanner extends ConsumerWidget {
+  final int runId;
+
+  const _NewPrBanner({required this.runId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final kinds =
+        ref.watch(recordsProvider).valueOrNull?.prsByRun[runId] ?? const {};
+    if (kinds.isEmpty) return const SizedBox.shrink();
+    final c = AppColors.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+        decoration: BoxDecoration(
+          color: c.accent,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.emoji_events_rounded, color: c.onAccent),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'New personal record!',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: c.onAccent,
+                    ),
+                  ),
+                  Text(
+                    kinds.map(effortLabel).join(' · '),
+                    style: TextStyle(fontSize: 13.5, color: c.onAccent),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

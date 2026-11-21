@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'database.dart';
+import 'records.dart';
 import 'track_sample.dart';
 
 export 'track_sample.dart';
@@ -24,6 +25,22 @@ final runsProvider = StreamProvider<List<Run>>((ref) {
   return ref.watch(runRepositoryProvider).watchRuns();
 });
 
+final recordsProvider = StreamProvider<RecordsSummary>((ref) {
+  return ref.watch(runRepositoryProvider).watchRecords();
+});
+
+final runProvider = StreamProvider.family<Run?, int>((ref, id) {
+  return ref.watch(runRepositoryProvider).watchRun(id);
+});
+
+final splitsProvider = StreamProvider.family<List<Split>, int>((ref, runId) {
+  return ref.watch(runRepositoryProvider).watchSplits(runId);
+});
+
+final trackProvider = FutureProvider.family<List<TrackPoint>, int>((ref, id) {
+  return ref.watch(runRepositoryProvider).getTrack(id);
+});
+
 class SprintResult {
   final DateTime startedAt;
   final Duration time;
@@ -33,6 +50,9 @@ class SprintResult {
   final double? kcal;
   final List<TrackSample> track;
 
+  /// Cumulative times (ms) at 10, 20 … 100 m.
+  final List<int> splitTimesMs;
+
   const SprintResult({
     required this.startedAt,
     required this.time,
@@ -41,6 +61,7 @@ class SprintResult {
     required this.gpsQuality,
     required this.track,
     this.kcal,
+    this.splitTimesMs = const [],
   });
 }
 
@@ -66,6 +87,40 @@ class RunRepository {
         ..where((r) => r.status.equalsValue(RunStatus.active).not())
         ..orderBy([(r) => OrderingTerm.desc(r.startedAt)]))
       .watch();
+
+  Stream<Run?> watchRun(int id) =>
+      (_db.select(_db.runs)..where((r) => r.id.equals(id)))
+          .watchSingleOrNull();
+
+  Stream<List<Split>> watchSplits(int runId) => (_db.select(_db.splits)
+        ..where((s) => s.runId.equals(runId))
+        ..orderBy([(s) => OrderingTerm.asc(s.idx)]))
+      .watch();
+
+  Future<void> updateNote(int runId, String? note) =>
+      (_db.update(_db.runs)..where((r) => r.id.equals(runId))).write(
+        RunsCompanion(
+          note: Value(note == null || note.trim().isEmpty ? null : note.trim()),
+        ),
+      );
+
+  /// All efforts of finished runs, folded into records and PR history.
+  Stream<RecordsSummary> watchRecords() {
+    final q = _db.select(_db.bestEfforts).join([
+      innerJoin(_db.runs, _db.runs.id.equalsExp(_db.bestEfforts.runId)),
+    ])
+      ..where(_db.runs.status.equalsValue(RunStatus.finished));
+    return q.watch().map((rows) => RecordsSummary.fromEntries(rows.map((r) {
+          final e = r.readTable(_db.bestEfforts);
+          final run = r.readTable(_db.runs);
+          return EffortEntry(
+            kind: e.kind,
+            runId: run.id,
+            runStartedAt: run.startedAt,
+            value: (e.valueMs?.toDouble() ?? e.valueMps ?? e.valueM ?? 0),
+          );
+        })));
+  }
 
   Future<Run?> getRun(int id) =>
       (_db.select(_db.runs)..where((r) => r.id.equals(id))).getSingleOrNull();
@@ -101,6 +156,7 @@ class RunRepository {
           ));
 
       await _insertTrack(runId, r.track);
+      await _insertSplits(runId, r.splitTimesMs, 10);
 
       // A run without GPS can't set records: its numbers are not measured.
       if (r.gpsQuality != GpsQuality.none) {
@@ -120,6 +176,30 @@ class RunRepository {
         });
       }
       return runId;
+    });
+  }
+
+  /// [cumulativeMs] are crossing times of every [stepM] mark.
+  Future<void> _insertSplits(
+    int runId,
+    List<int> cumulativeMs,
+    double stepM,
+  ) async {
+    if (cumulativeMs.isEmpty) return;
+    await _db.batch((b) {
+      b.insertAll(_db.splits, [
+        for (var k = 0; k < cumulativeMs.length; k++)
+          () {
+            final dur = cumulativeMs[k] - (k == 0 ? 0 : cumulativeMs[k - 1]);
+            return SplitsCompanion.insert(
+              runId: runId,
+              idx: k,
+              distanceM: stepM,
+              durationMs: dur,
+              avgSpeedMps: dur > 0 ? stepM / (dur / 1000) : 0,
+            );
+          }(),
+      ]);
     });
   }
 
