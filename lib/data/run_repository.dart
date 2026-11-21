@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/best_efforts.dart';
+import '../core/elevation.dart';
 import '../core/track_math.dart';
 import 'database.dart';
 import 'records.dart';
@@ -98,6 +99,7 @@ class RunProgress {
   final double distanceM;
   final double maxSpeedMps;
   final double? kcal;
+  final double? elevGainM;
 
   const RunProgress({
     required this.status,
@@ -106,6 +108,7 @@ class RunProgress {
     required this.distanceM,
     required this.maxSpeedMps,
     this.kcal,
+    this.elevGainM,
   });
 }
 
@@ -197,6 +200,7 @@ class RunRepository {
             p.movingMs > 0 ? p.distanceM / (p.movingMs / 1000) : 0,
           ),
           kcal: Value(p.kcal),
+          elevGainM: Value(p.elevGainM),
         ),
       );
     });
@@ -253,6 +257,7 @@ class RunRepository {
           maxSpeedMps: Value(maxSpeed),
           avgSpeedMps: Value(moveMs > 0 ? total / (moveMs / 1000) : 0),
           kcal: Value(kcal),
+          elevGainM: Value(ElevationGain.of(pts.map((p) => p.altM))),
         ),
       );
 

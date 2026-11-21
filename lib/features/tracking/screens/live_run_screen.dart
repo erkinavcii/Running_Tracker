@@ -252,14 +252,24 @@ class _LiveView extends ConsumerWidget {
                     color: c.warn.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Text(
-                    'PAUSED',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 2,
-                      color: c.warn,
-                    ),
+                  child: Column(
+                    children: [
+                      Text(
+                        snap.autoPaused ? 'AUTO-PAUSED' : 'PAUSED',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 2,
+                          color: c.warn,
+                        ),
+                      ),
+                      if (snap.autoPaused)
+                        Text(
+                          'Resumes when you start running',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 12, color: c.muted),
+                        ),
+                    ],
                   ),
                 ),
               SurfaceCard(
@@ -350,6 +360,7 @@ class _LiveView extends ConsumerWidget {
               const SizedBox(height: 14),
               Text(
                 'Elapsed ${formatClock(Duration(milliseconds: snap.elapsedMs))}'
+                ' · Climb ${snap.elevGainM.round()} m'
                 ' · ${snap.fixCount} GPS fixes',
                 textAlign: TextAlign.center,
                 style: TextStyle(

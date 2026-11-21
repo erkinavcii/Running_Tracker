@@ -1,11 +1,14 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import 'package:raw_gnss/raw_gnss.dart';
 
 import '../../data/database.dart';
 import '../../data/run_repository.dart';
 import 'tracking_engine.dart';
+import 'voice_cues.dart';
 
 /// Commands and notification button ids shared by UI and service.
 abstract final class TrackingCmd {
@@ -37,6 +40,8 @@ class TrackingTaskHandler extends TaskHandler {
   bool _miles = false;
   bool _finishing = false;
   TrackingStatus? _shownStatus;
+  VoiceCues? _cues;
+  FlutterTts? _tts;
 
   int _nowMs() => DateTime.now().difference(_startedAt).inMilliseconds;
 
@@ -67,6 +72,8 @@ class TrackingTaskHandler extends TaskHandler {
         resumeDistanceM: existing.distanceM,
         resumeMaxSpeedMps: existing.maxSpeedMps,
         resumeKcal: existing.kcal ?? 0,
+        resumeElevGainM: existing.elevGainM ?? 0,
+        autoPause: profile.autoPause,
         nowMs: _nowMs(),
       );
       if (existing.status == RunStatus.paused) _engine!.pause(_nowMs());
@@ -77,7 +84,12 @@ class TrackingTaskHandler extends TaskHandler {
         runId: id,
         startedAt: _startedAt,
         weightKg: profile.weightKg,
+        autoPause: profile.autoPause,
       );
+    }
+
+    if (profile.audioCues) {
+      await _initVoice(fresh: existing == null);
     }
 
     _gps = RawGnss.fixes().listen(
@@ -135,12 +147,40 @@ class TrackingTaskHandler extends TaskHandler {
     _flush();
   }
 
+  /// Sets up text-to-speech in the device language (Turkish or English).
+  Future<void> _initVoice({required bool fresh}) async {
+    try {
+      final tts = FlutterTts();
+      var turkish = Platform.localeName.toLowerCase().startsWith('tr');
+      if (turkish && await tts.isLanguageAvailable('tr-TR') != true) {
+        turkish = false;
+      }
+      await tts.setLanguage(turkish ? 'tr-TR' : 'en-US');
+      await tts.setSpeechRate(0.5);
+      await tts.setQueueMode(1); // add, don't cut the previous cue
+      _tts = tts;
+      final phrases = CuePhrases(turkish: turkish, miles: _miles);
+      _cues = VoiceCues(phrases);
+      if (fresh) _say(phrases.started);
+    } catch (_) {
+      // No TTS engine: run silently.
+      _tts = null;
+      _cues = null;
+    }
+  }
+
+  /// Speaks with transient audio focus so music ducks instead of stopping.
+  void _say(String text) {
+    _tts?.speak(text, focus: true);
+  }
+
   /// Sends the snapshot to the UI and refreshes the notification.
   void _publish() {
     final engine = _engine;
     if (engine == null) return;
     final snap = engine.snapshot(_nowMs());
     FlutterForegroundTask.sendDataToMain(snap.toMap());
+    _cues?.update(snap).forEach(_say);
 
     final statusChanged = _shownStatus != snap.status;
     _shownStatus = snap.status;
@@ -187,6 +227,7 @@ class TrackingTaskHandler extends TaskHandler {
         distanceM: snap.distanceM,
         maxSpeedMps: snap.maxSpeedMps,
         kcal: snap.kcal,
+        elevGainM: snap.elevGainM,
       ),
     );
   }
@@ -218,6 +259,7 @@ class TrackingTaskHandler extends TaskHandler {
   @override
   Future<void> onDestroy(DateTime timestamp, bool isTimeout) async {
     await _gps?.cancel();
+    await _tts?.stop();
     // Killed mid-run: keep everything so the app can offer recovery.
     if (!_finishing) await _flush();
     await _db?.close();

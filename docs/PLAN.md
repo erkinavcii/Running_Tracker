@@ -119,7 +119,7 @@ best_efforts    runId, kind(100m|400m|1k|5k|10k|21k|top_speed|longest),
 - Uygulama açıldığında aktif bir koşu varsa ve servis çalışıyorsa: canlı ekrana bağlanılır.
 - Servis ölmüşse: "Yarım kalan koşu bulundu. Devam et / Kaydet / Sil" seçenekleri sunulur.
 
-## 6. Faz D: Endurance modu
+## 6. Faz D: Endurance modu ✔
 
 **TrackingEngine** (saf Dart, platformdan bağımsız, birim test edilebilir):
 - **Mesafe:** Doppler hızının zamanla integrali (sprintteki Kalman'ın sadeleştirilmiş hali) ana kaynak. Konumlar harita ve tutarlılık kontrolü için kullanılır. İki kaynak 50 m'den fazla ayrışırsa log'a uyarı yazılır.
