@@ -8,6 +8,7 @@ import '../../sprint/screens/sprint_active_screen.dart';
 import '../../tracking/screens/live_run_screen.dart';
 import '../../tracking/tracking_engine.dart';
 import '../../tracking/tracking_service.dart';
+import '../../../core/l10n.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -56,7 +57,7 @@ class HomeScreen extends ConsumerWidget {
             ],
             const SizedBox(height: 36),
             Text(
-              'Choose a mode',
+              context.l10n.chooseMode,
               style: TextStyle(
                 fontSize: 30,
                 height: 1.15,
@@ -67,14 +68,14 @@ class HomeScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Raw GNSS Doppler speed, filtered with the accelerometer.',
+              context.l10n.homeSubtitle,
               style: TextStyle(fontSize: 15, height: 1.4, color: c.muted),
             ),
             const SizedBox(height: 28),
             _ModeCard(
               picto: Picto.sprint,
-              title: 'Sprint',
-              subtitle: '100 m dash · auto start & finish',
+              title: context.l10n.sprint,
+              subtitle: context.l10n.sprintSubtitle,
               tag: '100 m',
               onTap: () => Navigator.push(
                 context,
@@ -84,21 +85,21 @@ class HomeScreen extends ConsumerWidget {
             const SizedBox(height: 12),
             _ModeCard(
               picto: Picto.jog,
-              title: 'Endurance',
-              subtitle: 'Pocket-friendly · controls in the notification',
-              tag: 'Run',
+              title: context.l10n.endurance,
+              subtitle: context.l10n.enduranceSubtitle,
+              tag: context.l10n.run,
               enabled: true,
               onTap: () => _openRun(context),
             ),
             const SizedBox(height: 32),
-            const _InfoRow(
+            _InfoRow(
               icon: Icons.satellite_alt_outlined,
-              text: 'Stand outside with a clear view of the sky.',
+              text: context.l10n.tipSky,
             ),
             const SizedBox(height: 10),
-            const _InfoRow(
+            _InfoRow(
               icon: Icons.front_hand_outlined,
-              text: 'Hold the phone firmly or use an armband.',
+              text: context.l10n.tipHold,
             ),
           ],
         ),
@@ -211,7 +212,7 @@ class _Tag extends StatelessWidget {
         border: Border.all(color: highlighted ? c.accent : c.line),
       ),
       child: Text(
-        text.toUpperCase(),
+        context.upper(text),
         style: TextStyle(
           fontSize: 10.5,
           fontWeight: FontWeight.w700,
@@ -271,7 +272,7 @@ class _ActiveRunBanner extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  '${paused ? 'Run paused' : 'Run in progress'} · '
+                  '${paused ? context.l10n.runPaused : context.l10n.runInProgress} · '
                   '${formatDistance(snap.distanceM)} · '
                   '${formatClock(Duration(milliseconds: snap.movingMs))}',
                   style: TextStyle(

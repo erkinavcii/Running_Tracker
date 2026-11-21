@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/date_symbol_data_local.dart';
+import 'package:intl/intl.dart';
+
+import 'core/l10n.dart';
 
 import 'core/services/location_service.dart';
 import 'core/services/sensor_fusion_service.dart';
@@ -13,6 +18,7 @@ import 'features/sprint/providers/sprint_controller.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await initializeDateFormatting();
   initTrackingService();
   // Demo builds use a seeded in-memory database, never the real one.
   final demoDb = demoMode.isEmpty ? null : await buildDemoDatabase();
@@ -34,16 +40,31 @@ Future<void> main() async {
   );
 }
 
-class SprintTrackerApp extends StatelessWidget {
+class SprintTrackerApp extends ConsumerWidget {
   const SprintTrackerApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final chosen = ref.watch(profileProvider).valueOrNull?.language;
     return MaterialApp(
-      title: 'Sprint Tracker',
+      onGenerateTitle: (c) => c.l10n.appTitle,
       debugShowCheckedModeBanner: false,
       theme: buildTheme(Brightness.light),
       darkTheme: buildTheme(Brightness.dark),
+      // null = follow the phone (falls back to English).
+      locale: chosen == null ? null : Locale(chosen),
+      supportedLocales: AppLocalizations.supportedLocales,
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      builder: (context, child) {
+        // Dates formatted outside widgets (formatRunDate) follow the UI.
+        Intl.defaultLocale = Localizations.localeOf(context).languageCode;
+        return child!;
+      },
       home: const RootGate(),
     );
   }

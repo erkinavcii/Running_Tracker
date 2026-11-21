@@ -12,6 +12,7 @@ import '../../../data/run_repository.dart';
 import '../widgets/run_card.dart';
 import '../widgets/weekly_bars.dart';
 import 'run_detail_screen.dart';
+import '../../../core/l10n.dart';
 
 /// Runs swiped away but still undoable; deleted for real when the
 /// snackbar closes without "Undo".
@@ -30,9 +31,11 @@ void deleteRunWithUndo(BuildContext context, WidgetRef ref, Run run) {
   messenger
       .showSnackBar(SnackBar(
         content: Text(
-          '${run.type == RunType.sprint ? 'Sprint' : 'Run'} deleted',
+          run.type == RunType.sprint
+              ? context.l10n.sprintDeleted
+              : context.l10n.runDeleted,
         ),
-        action: SnackBarAction(label: 'UNDO', onPressed: () {}),
+        action: SnackBarAction(label: context.l10n.undo, onPressed: () {}),
         duration: const Duration(seconds: 5),
       ))
       .closed
@@ -71,20 +74,20 @@ class HistoryScreen extends ConsumerWidget {
           return ListView(
             padding: const EdgeInsets.fromLTRB(20, 28, 20, 24),
             children: [
-              const PageTitle('History'),
+              PageTitle(context.l10n.tabHistory),
               const SizedBox(height: 20),
               if (list.isEmpty)
-                const EmptyState(
+                EmptyState(
                   picto: Picto.jog,
-                  title: 'No runs yet',
-                  body: 'Finished sprints are saved here automatically.',
+                  title: context.l10n.noRunsTitle,
+                  body: context.l10n.noRunsBody,
                 )
               else ...[
                 SurfaceCard(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const SectionLabel('Last 8 weeks'),
+                      SectionLabel(context.l10n.last8Weeks),
                       const SizedBox(height: 12),
                       WeeklyBars(
                         weeks: weeklyTotals(
@@ -125,7 +128,7 @@ class HistoryScreen extends ConsumerWidget {
                 ],
                 const SizedBox(height: 4),
                 Text(
-                  'Swipe left to delete.',
+                  context.l10n.swipeToDelete,
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 12,
@@ -161,7 +164,12 @@ class _WeekHeader extends StatelessWidget {
       textBaseline: TextBaseline.alphabetic,
       children: [
         Text(
-          weekLabel(group.start, now: now),
+          weekLabel(
+            group.start,
+            now: now,
+            thisWeek: context.l10n.thisWeek,
+            lastWeek: context.l10n.lastWeek,
+          ),
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w700,
@@ -172,7 +180,7 @@ class _WeekHeader extends StatelessWidget {
         Expanded(
           child: Text(
             '${formatDistance(group.distanceM, miles: miles)} · '
-            '${formatClock(group.moving)} · $n ${n == 1 ? 'run' : 'runs'}',
+            '${formatClock(group.moving)} · ${context.l10n.runsCount(n)}',
             textAlign: TextAlign.end,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,

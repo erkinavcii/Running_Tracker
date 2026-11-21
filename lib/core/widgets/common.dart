@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 import 'pictogram.dart';
+import '../l10n.dart';
 
 /// Small upper-case caption above a value or section.
 class SectionLabel extends StatelessWidget {
@@ -12,7 +13,7 @@ class SectionLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Text(
-      text.toUpperCase(),
+      context.upper(text),
       style: TextStyle(
         fontSize: 11,
         fontWeight: FontWeight.w700,

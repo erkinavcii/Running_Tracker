@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/format.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/weeks.dart';
+import '../../../core/l10n.dart';
 
 /// Flat bar chart of distance per week; the current week is highlighted.
 class WeeklyBars extends StatelessWidget {
@@ -71,7 +72,7 @@ class WeeklyBars extends StatelessWidget {
               style: TextStyle(fontSize: 11, color: c.muted),
             ),
             const Spacer(),
-            Text('This week', style: TextStyle(fontSize: 11, color: c.muted)),
+            Text(context.l10n.thisWeek, style: TextStyle(fontSize: 11, color: c.muted)),
           ],
         ),
       ],

@@ -1,10 +1,10 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:raw_gnss/raw_gnss.dart';
 
+import '../../core/l10n.dart';
 import '../../data/database.dart';
 import '../../data/run_repository.dart';
 import 'tracking_engine.dart';
@@ -38,6 +38,7 @@ class TrackingTaskHandler extends TaskHandler {
   int _nextSeq = 0;
   int _ticks = 0;
   bool _miles = false;
+  bool _turkish = false;
   bool _finishing = false;
   TrackingStatus? _shownStatus;
   VoiceCues? _cues;
@@ -54,6 +55,7 @@ class TrackingTaskHandler extends TaskHandler {
 
     final profile = await repo.getProfile();
     _miles = profile.useMiles;
+    _turkish = resolveLanguage(profile.language) == 'tr';
 
     // Continue an unfinished run (service restarted by the system or
     // resumed after a crash), otherwise start a new one.
@@ -151,7 +153,7 @@ class TrackingTaskHandler extends TaskHandler {
   Future<void> _initVoice({required bool fresh}) async {
     try {
       final tts = FlutterTts();
-      var turkish = Platform.localeName.toLowerCase().startsWith('tr');
+      var turkish = _turkish;
       if (turkish && await tts.isLanguageAvailable('tr-TR') != true) {
         turkish = false;
       }
@@ -185,11 +187,20 @@ class TrackingTaskHandler extends TaskHandler {
     final statusChanged = _shownStatus != snap.status;
     _shownStatus = snap.status;
     FlutterForegroundTask.updateService(
-      notificationTitle: snap.notificationTitle(miles: _miles),
-      notificationText: snap.notificationText(miles: _miles),
+      notificationTitle: snap.notificationTitle(
+        miles: _miles,
+        turkish: _turkish,
+      ),
+      notificationText: snap.notificationText(
+        miles: _miles,
+        turkish: _turkish,
+      ),
       // Buttons only change with the status. "Finish" is offered only
       // while paused so a phone in a pocket can't end the run by accident.
-      notificationButtons: statusChanged ? trackingButtons(snap.status) : null,
+      notificationButtons:
+          statusChanged
+              ? trackingButtons(snap.status, turkish: _turkish)
+              : null,
     );
   }
 
@@ -266,14 +277,25 @@ class TrackingTaskHandler extends TaskHandler {
   }
 }
 
-List<NotificationButton> trackingButtons(TrackingStatus status) =>
-    switch (status) {
-      TrackingStatus.running => const [
-        NotificationButton(id: TrackingCmd.pause, text: 'Pause'),
-      ],
-      TrackingStatus.paused => const [
-        NotificationButton(id: TrackingCmd.resume, text: 'Resume'),
-        NotificationButton(id: TrackingCmd.finish, text: 'Finish'),
-      ],
-      TrackingStatus.finished => const [],
-    };
+List<NotificationButton> trackingButtons(
+  TrackingStatus status, {
+  bool turkish = false,
+}) => switch (status) {
+  TrackingStatus.running => [
+    NotificationButton(
+      id: TrackingCmd.pause,
+      text: turkish ? 'Duraklat' : 'Pause',
+    ),
+  ],
+  TrackingStatus.paused => [
+    NotificationButton(
+      id: TrackingCmd.resume,
+      text: turkish ? 'Devam' : 'Resume',
+    ),
+    NotificationButton(
+      id: TrackingCmd.finish,
+      text: turkish ? 'Bitir' : 'Finish',
+    ),
+  ],
+  TrackingStatus.finished => const [],
+};

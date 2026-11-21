@@ -8,6 +8,7 @@ import '../../../core/widgets/pictogram.dart';
 import '../../../data/database.dart';
 import '../../../data/run_repository.dart';
 import '../profile_validation.dart';
+import '../../../core/l10n.dart';
 
 /// One-time first-launch step: ask for weight (for calories), skippable.
 class OnboardingScreen extends ConsumerStatefulWidget {
@@ -63,7 +64,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               ),
               const SizedBox(height: 28),
               Text(
-                'Welcome to\nSprint Tracker',
+                context.l10n.welcome,
                 style: TextStyle(
                   fontSize: 32,
                   height: 1.15,
@@ -74,9 +75,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               ),
               const SizedBox(height: 12),
               Text(
-                'What is your weight? It is only used to estimate calories '
-                'and never leaves this phone. You can change it later in '
-                'Profile.',
+                context.l10n.onboardingBody,
                 style: TextStyle(fontSize: 15, height: 1.45, color: c.muted),
               ),
               const SizedBox(height: 28),
@@ -88,14 +87,15 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 inputFormatters: [
                   FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
                 ],
-                validator: (s) => validateWeight(s, required: true),
+                validator: (s) =>
+                    validateWeight(s, required: true, l: context.l10n),
                 style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.w700,
                   fontFeatures: tabularFigures,
                 ),
-                decoration: const InputDecoration(
-                  labelText: 'Weight',
+                decoration: InputDecoration(
+                  labelText: context.l10n.weight,
                   suffixText: 'kg',
                   border: OutlineInputBorder(),
                 ),
@@ -104,13 +104,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               const SizedBox(height: 24),
               FilledButton(
                 onPressed: _saving ? null : () => _finish(withWeight: true),
-                child: const Text('CONTINUE'),
+                child: Text(context.l10n.continueCaps),
               ),
               const SizedBox(height: 8),
               TextButton(
                 onPressed: _saving ? null : () => _finish(withWeight: false),
                 style: TextButton.styleFrom(foregroundColor: c.muted),
-                child: const Text('Skip for now'),
+                child: Text(context.l10n.skipForNow),
               ),
             ],
           ),

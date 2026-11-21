@@ -11,6 +11,7 @@ import '../../../data/effort_labels.dart';
 import '../../../data/records.dart';
 import '../../../data/run_repository.dart';
 import '../../history/screens/run_detail_screen.dart';
+import '../../../core/l10n.dart';
 
 class RecordsScreen extends ConsumerWidget {
   const RecordsScreen({super.key});
@@ -27,24 +28,23 @@ class RecordsScreen extends ConsumerWidget {
         data: (r) => ListView(
           padding: const EdgeInsets.fromLTRB(20, 28, 20, 24),
           children: [
-            const PageTitle('Records'),
+            PageTitle(context.l10n.tabRecords),
             const SizedBox(height: 20),
             if (r.best.isEmpty)
-              const EmptyState(
+              EmptyState(
                 picto: Picto.finish,
-                title: 'No records yet',
-                body: 'Finish a sprint with GPS to set your first 100 m time '
-                    'and top speed.',
+                title: context.l10n.noRecordsTitle,
+                body: context.l10n.noRecordsBody,
               )
             else ...[
-              const SectionLabel('Sprint'),
+              SectionLabel(context.l10n.sprint),
               const SizedBox(height: 10),
               for (final k in sprintKinds) ...[
                 _RecordTile(kind: k, summary: r, miles: miles),
                 const SizedBox(height: 10),
               ],
               const SizedBox(height: 14),
-              const SectionLabel('Endurance'),
+              SectionLabel(context.l10n.endurance),
               const SizedBox(height: 10),
               for (final k in enduranceKinds) ...[
                 _RecordTile(kind: k, summary: r, miles: miles),
@@ -92,7 +92,7 @@ class _RecordTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  effortLabel(kind),
+                  effortLabel(kind, context.l10n),
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
@@ -102,9 +102,9 @@ class _RecordTile extends StatelessWidget {
                 const SizedBox(height: 3),
                 Text(
                   best == null
-                      ? 'Not set yet'
+                      ? context.l10n.notSetYet
                       : '${formatRunDate(best.runStartedAt)}'
-                          '${history.length > 1 ? ' · improved ${history.length - 1}×' : ''}',
+                          '${history.length > 1 ? ' · ${context.l10n.improvedTimes(history.length - 1)}' : ''}',
                   style: TextStyle(fontSize: 12.5, color: c.muted),
                 ),
               ],

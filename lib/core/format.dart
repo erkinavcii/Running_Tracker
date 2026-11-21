@@ -1,6 +1,8 @@
 /// Display formatting shared by all screens.
 library;
 
+import 'package:intl/intl.dart';
+
 const double metersPerMile = 1609.344;
 
 /// 9.84 · 1:02.34 (sprint style, centiseconds).
@@ -45,16 +47,8 @@ String formatPace(double mps, {bool miles = false}) {
   return '$m:$s /${miles ? 'mi' : 'km'}';
 }
 
-const _weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const _months = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-];
-
-/// "Sat, 21 Nov · 09:30" (localised in phase F).
+/// "Sat, 21 Nov · 09:30" / "Cmt, 21 Kas · 09:30" in the app language.
 String formatRunDate(DateTime t) {
   final l = t.toLocal();
-  final hh = l.hour.toString().padLeft(2, '0');
-  final mm = l.minute.toString().padLeft(2, '0');
-  return '${_weekdays[l.weekday - 1]}, ${l.day} ${_months[l.month - 1]} · $hh:$mm';
+  return '${DateFormat('EEE, d MMM').format(l)} · ${DateFormat('HH:mm').format(l)}';
 }

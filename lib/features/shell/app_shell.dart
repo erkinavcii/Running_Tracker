@@ -12,6 +12,7 @@ import '../profile/screens/profile_screen.dart';
 import '../records/screens/records_screen.dart';
 import '../tracking/screens/live_run_screen.dart';
 import '../tracking/tracking_service.dart';
+import '../../core/l10n.dart';
 
 /// Shows onboarding once, then the tabbed app.
 class RootGate extends ConsumerWidget {
@@ -24,7 +25,7 @@ class RootGate extends ConsumerWidget {
       data: (p) => p.onboarded ? const AppShell() : const OnboardingScreen(),
       loading: () => const Scaffold(),
       error: (e, _) => Scaffold(
-        body: Center(child: Text('Could not open the database.\n$e')),
+        body: Center(child: Text(context.l10n.dbError('$e'))),
       ),
     );
   }
@@ -59,27 +60,26 @@ class _AppShellState extends ConsumerState<AppShell> {
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        title: const Text('Unfinished run found'),
+        title: Text(context.l10n.unfinishedTitle),
         content: Text(
           '${formatRunDate(run.startedAt)}\n'
           '${formatDistance(run.distanceM)} · '
           '${formatClock(Duration(milliseconds: run.movingMs))}\n\n'
-          'Tracking stopped unexpectedly. Continue it, save it as it is, '
-          'or discard it?',
+          '${context.l10n.unfinishedBody}',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, 'discard'),
-            child: const Text('Discard'),
+            child: Text(context.l10n.discard),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, 'save'),
-            child: const Text('Save'),
+            child: Text(context.l10n.save),
           ),
           FilledButton(
             style: FilledButton.styleFrom(minimumSize: const Size(88, 44)),
             onPressed: () => Navigator.pop(ctx, 'resume'),
-            child: const Text('Continue'),
+            child: Text(context.l10n.continueRun),
           ),
         ],
       ),
@@ -132,26 +132,26 @@ class _AppShellState extends ConsumerState<AppShell> {
         child: NavigationBar(
           selectedIndex: _index,
           onDestinationSelected: (i) => setState(() => _index = i),
-          destinations: const [
+          destinations: [
             NavigationDestination(
               icon: Icon(Icons.directions_run_outlined),
               selectedIcon: Icon(Icons.directions_run_rounded),
-              label: 'Run',
+              label: context.l10n.tabRun,
             ),
             NavigationDestination(
               icon: Icon(Icons.history_outlined),
               selectedIcon: Icon(Icons.history_rounded),
-              label: 'History',
+              label: context.l10n.tabHistory,
             ),
             NavigationDestination(
               icon: Icon(Icons.emoji_events_outlined),
               selectedIcon: Icon(Icons.emoji_events_rounded),
-              label: 'Records',
+              label: context.l10n.tabRecords,
             ),
             NavigationDestination(
               icon: Icon(Icons.person_outline_rounded),
               selectedIcon: Icon(Icons.person_rounded),
-              label: 'Profile',
+              label: context.l10n.tabProfile,
             ),
           ],
         ),

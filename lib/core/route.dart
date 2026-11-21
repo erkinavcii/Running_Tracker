@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'track_math.dart';
 
 /// Route geometry for maps and previews. Pure Dart, unit-tested.
@@ -23,7 +25,10 @@ class RouteLine {
 /// Speed band edges from quantiles, so every run uses its full colour range
 /// whatever its pace (an easy jog still shows its faster stretches).
 List<double> bandEdges(List<double> speeds, {int bands = 5}) {
-  final moving = [for (final s in speeds) if (s > 0.5) s]..sort();
+  final moving = [
+    for (final s in speeds)
+      if (s > 0.5) s,
+  ]..sort();
   if (moving.isEmpty) return List.filled(bands - 1, double.infinity);
   return [
     for (var i = 1; i < bands; i++)
@@ -99,10 +104,12 @@ List<LatLon> distanceMarkers(
     while (distM[i] >= next) {
       final span = distM[i] - distM[i - 1];
       final f = span <= 0 ? 1.0 : (next - distM[i - 1]) / span;
-      out.add(LatLon(
-        pts[i - 1].lat + (pts[i].lat - pts[i - 1].lat) * f,
-        pts[i - 1].lon + (pts[i].lon - pts[i - 1].lon) * f,
-      ));
+      out.add(
+        LatLon(
+          pts[i - 1].lat + (pts[i].lat - pts[i - 1].lat) * f,
+          pts[i - 1].lon + (pts[i].lon - pts[i - 1].lon) * f,
+        ),
+      );
       next += stepM;
     }
   }
@@ -140,12 +147,62 @@ List<List<LatLon>> previewPolylines(
       if (current.length > 1) out.add(current);
       current = [];
     }
-    final last = i == pts.length - 1 ||
-        pts[i + 1].segment != pts[i].segment;
+    final last = i == pts.length - 1 || pts[i + 1].segment != pts[i].segment;
     if (newSeg || i % stride == 0 || last) {
       current.add(LatLon(pts[i].lat, pts[i].lon));
     }
   }
   if (current.length > 1) out.add(current);
   return out;
+}
+
+double _mercY(double lat) {
+  final s = math.sin(lat * math.pi / 180);
+  return 0.5 - math.log((1 + s) / (1 - s)) / (4 * math.pi);
+}
+
+/// Web-Mercator zoom at which all [points] fit a [width]×[height] view
+/// (logical pixels, 256 px tiles) with [padding] on every side.
+double fitZoom(
+  List<LatLon> points, {
+  required double width,
+  required double height,
+  double padding = 32,
+  double maxZoom = 17,
+}) {
+  if (points.isEmpty || width <= 2 * padding || height <= 2 * padding) {
+    return maxZoom;
+  }
+  var minLat = points.first.lat, maxLat = minLat;
+  var minLon = points.first.lon, maxLon = minLon;
+  for (final p in points) {
+    minLat = math.min(minLat, p.lat);
+    maxLat = math.max(maxLat, p.lat);
+    minLon = math.min(minLon, p.lon);
+    maxLon = math.max(maxLon, p.lon);
+  }
+  final dx = (maxLon - minLon) / 360; // world fraction
+  final dy = (_mercY(minLat) - _mercY(maxLat)).abs();
+  double zoomFor(double frac, double px) =>
+      frac <= 0 ? maxZoom : math.log(px / (frac * 256)) / math.ln2;
+  return math.min(
+    maxZoom,
+    math.min(
+      zoomFor(dx, width - 2 * padding),
+      zoomFor(dy, height - 2 * padding),
+    ),
+  );
+}
+
+/// Centre of the bounding box of [points].
+LatLon boundsCenter(List<LatLon> points) {
+  var minLat = points.first.lat, maxLat = minLat;
+  var minLon = points.first.lon, maxLon = minLon;
+  for (final p in points) {
+    minLat = math.min(minLat, p.lat);
+    maxLat = math.max(maxLat, p.lat);
+    minLon = math.min(minLon, p.lon);
+    maxLon = math.max(maxLon, p.lon);
+  }
+  return LatLon((minLat + maxLat) / 2, (minLon + maxLon) / 2);
 }

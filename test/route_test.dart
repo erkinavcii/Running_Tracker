@@ -74,4 +74,13 @@ void main() {
     expect(e.every((x) => x == 3), isTrue);
     expect(bandOf(0.2, e), 0);
   });
+
+  test('fit zoom matches the Web-Mercator scale', () {
+    // 1/1024 of the world wide at the equator → zoom 10 fills 256 px.
+    final pts = [const LatLon(0, 0), const LatLon(0, 360 / 1024)];
+    expect(fitZoom(pts, width: 256 + 60, height: 400, padding: 30, maxZoom: 20),
+        closeTo(10, 1e-9));
+    // A single point uses the max zoom.
+    expect(fitZoom([const LatLon(41, 29)], width: 300, height: 300), 17);
+  });
 }

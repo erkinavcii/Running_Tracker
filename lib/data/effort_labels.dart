@@ -1,16 +1,17 @@
 import '../core/format.dart';
+import '../l10n/app_localizations.dart';
 import 'database.dart';
 
 /// Display name of a record kind.
-String effortLabel(EffortKind k) => switch (k) {
-      EffortKind.sprint100m => '100 m sprint',
-      EffortKind.topSpeed => 'Top speed',
+String effortLabel(EffortKind k, [AppLocalizations? l]) => switch (k) {
+      EffortKind.sprint100m => l?.effortSprint100 ?? '100 m sprint',
+      EffortKind.topSpeed => l?.topSpeed ?? 'Top speed',
       EffortKind.best400m => '400 m',
       EffortKind.best1k => '1 km',
       EffortKind.best5k => '5 km',
       EffortKind.best10k => '10 km',
-      EffortKind.bestHalf => 'Half marathon',
-      EffortKind.longest => 'Longest run',
+      EffortKind.bestHalf => l?.effortHalf ?? 'Half marathon',
+      EffortKind.longest => l?.effortLongest ?? 'Longest run',
     };
 
 /// Target distance of a time-based kind, null for the others.

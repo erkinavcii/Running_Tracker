@@ -7,6 +7,7 @@ import '../../core/route.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/track_math.dart';
 import '../../data/database.dart';
+import '../../core/l10n.dart';
 
 /// OpenStreetMap tiles. The policy asks for an app-specific user agent and
 /// visible attribution. Tests turn tiles off (no network there).
@@ -73,74 +74,83 @@ class RouteMap extends StatelessWidget {
     final step = miles ? metersPerMile : 1000.0;
     final markers = distanceMarkers(like, distM, step);
     final all = [for (final p in track) LatLng(p.lat, p.lon)];
+    final coords = [for (final p in track) LatLon(p.lat, p.lon)];
     final h = highlight;
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(16),
       child: SizedBox(
         height: height,
-        child: FlutterMap(
-          options: MapOptions(
-            initialCameraFit: CameraFit.coordinates(
-              coordinates: all,
-              padding: const EdgeInsets.all(36),
-              maxZoom: 17,
-            ),
-            backgroundColor: c.surface,
-            // Inside a scrolling page the map must not steal drags.
-            interactionOptions: InteractionOptions(
-              flags:
-                  interactive
-                      ? InteractiveFlag.all & ~InteractiveFlag.rotate
-                      : InteractiveFlag.none,
-            ),
-          ),
-          children: [
-            if (mapTilesEnabled) osmTiles(),
-            PolylineLayer(
-              polylines: [
-                for (final l in lines)
-                  Polyline(
-                    points: [for (final p in l.points) _ll(p)],
-                    strokeWidth: 5,
-                    color: bandColor(context, l.band),
-                    borderStrokeWidth: 1.5,
-                    borderColor: Colors.white.withValues(alpha: 0.8),
+        child: LayoutBuilder(
+          builder:
+              (context, box) => FlutterMap(
+                // Fit computed from the real size (CameraFit could zoom in too far
+                // on a first layout inside a scrolling page).
+                key: ValueKey(box.biggest),
+                options: MapOptions(
+                  initialCenter: _ll(boundsCenter(coords)),
+                  initialZoom: fitZoom(
+                    coords,
+                    width: box.maxWidth,
+                    height: box.maxHeight,
+                    padding: 48, // room for markers and the attribution
                   ),
-              ],
-            ),
-            MarkerLayer(
-              markers: [
-                for (var i = 0; i < markers.length; i++)
-                  Marker(
-                    point: _ll(markers[i]),
-                    width: 22,
-                    height: 22,
-                    child: _Badge(text: '${i + 1}', color: c.ink),
+                  backgroundColor: c.surface,
+                  // Inside a scrolling page the map must not steal drags.
+                  interactionOptions: InteractionOptions(
+                    flags:
+                        interactive
+                            ? InteractiveFlag.all & ~InteractiveFlag.rotate
+                            : InteractiveFlag.none,
                   ),
-                Marker(
-                  point: all.first,
-                  width: 18,
-                  height: 18,
-                  child: _Dot(color: const Color(0xFF2E9E5B)),
                 ),
-                Marker(
-                  point: all.last,
-                  width: 18,
-                  height: 18,
-                  child: _Dot(color: c.ink),
-                ),
-                if (h != null && h >= 0 && h < all.length)
-                  Marker(
-                    point: all[h],
-                    width: 22,
-                    height: 22,
-                    child: _Dot(color: c.accent, big: true),
+                children: [
+                  if (mapTilesEnabled) osmTiles(),
+                  PolylineLayer(
+                    polylines: [
+                      for (final l in lines)
+                        Polyline(
+                          points: [for (final p in l.points) _ll(p)],
+                          strokeWidth: 5,
+                          color: bandColor(context, l.band),
+                          borderStrokeWidth: 1.5,
+                          borderColor: Colors.white.withValues(alpha: 0.8),
+                        ),
+                    ],
                   ),
-              ],
-            ),
-            if (mapTilesEnabled) osmAttribution(),
-          ],
+                  MarkerLayer(
+                    markers: [
+                      for (var i = 0; i < markers.length; i++)
+                        Marker(
+                          point: _ll(markers[i]),
+                          width: 22,
+                          height: 22,
+                          child: _Badge(text: '${i + 1}', color: c.ink),
+                        ),
+                      Marker(
+                        point: all.first,
+                        width: 18,
+                        height: 18,
+                        child: _Dot(color: const Color(0xFF2E9E5B)),
+                      ),
+                      Marker(
+                        point: all.last,
+                        width: 18,
+                        height: 18,
+                        child: _Dot(color: c.ink),
+                      ),
+                      if (h != null && h >= 0 && h < all.length)
+                        Marker(
+                          point: all[h],
+                          width: 22,
+                          height: 22,
+                          child: _Dot(color: c.accent, big: true),
+                        ),
+                    ],
+                  ),
+                  if (mapTilesEnabled) osmAttribution(),
+                ],
+              ),
         ),
       ),
     );
@@ -209,7 +219,9 @@ class SpeedLegend extends StatelessWidget {
     return Row(
       children: [
         Text(
-          finite.isEmpty ? 'slow' : formatPace(finite.first, miles: miles),
+          finite.isEmpty
+              ? context.l10n.slow
+              : formatPace(finite.first, miles: miles),
           style: style,
         ),
         const SizedBox(width: 8),
@@ -226,7 +238,9 @@ class SpeedLegend extends StatelessWidget {
           ),
         const SizedBox(width: 8),
         Text(
-          finite.isEmpty ? 'fast' : formatPace(finite.last, miles: miles),
+          finite.isEmpty
+              ? context.l10n.fast
+              : formatPace(finite.last, miles: miles),
           style: style,
         ),
       ],
@@ -251,7 +265,7 @@ class RouteMapPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Route')),
+    appBar: AppBar(title: Text(context.l10n.route)),
     body: Padding(
       padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
       child: Column(

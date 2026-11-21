@@ -12,8 +12,10 @@ import '../../../data/effort_labels.dart';
 import '../../../data/records.dart';
 import '../../../data/run_repository.dart';
 import '../../map/route_map.dart';
+import '../gpx_export.dart';
 import '../widgets/run_card.dart';
 import 'history_screen.dart';
+import '../../../core/l10n.dart';
 
 class RunDetailScreen extends ConsumerWidget {
   final int runId;
@@ -34,7 +36,7 @@ class RunDetailScreen extends ConsumerWidget {
         if (run == null) {
           return Scaffold(
             appBar: AppBar(),
-            body: const Center(child: Text('This run was deleted.')),
+            body: Center(child: Text(context.l10n.runWasDeleted)),
           );
         }
         final sprint = run.type == RunType.sprint;
@@ -42,15 +44,36 @@ class RunDetailScreen extends ConsumerWidget {
 
         return Scaffold(
           appBar: AppBar(
-            title: Text(sprint ? 'Sprint' : 'Run'),
+            title: Text(sprint ? context.l10n.sprint : context.l10n.run),
             actions: [
+              if (run.gpsQuality != GpsQuality.none)
+                Builder(
+                  builder: (btnContext) => IconButton(
+                    tooltip: context.l10n.exportGpx,
+                    icon: const Icon(Icons.ios_share_rounded),
+                    onPressed: () async {
+                      final messenger = ScaffoldMessenger.of(context);
+                      final noGps = context.l10n.noGpsToExport;
+                      final ok = await shareRunGpx(
+                        btnContext,
+                        ref.read(runRepositoryProvider),
+                        run,
+                      );
+                      if (!ok) {
+                        messenger.showSnackBar(SnackBar(
+                          content: Text(noGps),
+                        ));
+                      }
+                    },
+                  ),
+                ),
               IconButton(
-                tooltip: 'Edit note',
+                tooltip: context.l10n.editNote,
                 icon: const Icon(Icons.edit_note_rounded),
                 onPressed: () => _editNote(context, ref, run),
               ),
               IconButton(
-                tooltip: 'Delete',
+                tooltip: context.l10n.delete,
                 icon: const Icon(Icons.delete_outline_rounded),
                 onPressed: () {
                   deleteRunWithUndo(context, ref, run);
@@ -78,7 +101,7 @@ class RunDetailScreen extends ConsumerWidget {
                   runSpacing: 8,
                   children: [
                     for (final k in prs)
-                      PrBadge(text: effortLabel(k).toUpperCase()),
+                      PrBadge(text: context.upper(effortLabel(k, context.l10n))),
                   ],
                 ),
               ],
@@ -109,26 +132,26 @@ class RunDetailScreen extends ConsumerWidget {
       context: context,
       builder:
           (ctx) => AlertDialog(
-            title: const Text('Note'),
+            title: Text(context.l10n.note),
             content: TextField(
               controller: controller,
               autofocus: true,
               maxLines: 4,
               minLines: 2,
-              decoration: const InputDecoration(
-                hintText: 'Track, wind, shoes, how it felt…',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                hintText: context.l10n.noteHint,
+                border: const OutlineInputBorder(),
               ),
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('Cancel'),
+                child: Text(context.l10n.cancel),
               ),
               FilledButton(
                 style: FilledButton.styleFrom(minimumSize: const Size(88, 44)),
                 onPressed: () => Navigator.pop(ctx, controller.text),
-                child: const Text('Save'),
+                child: Text(context.l10n.save),
               ),
             ],
           ),
@@ -166,8 +189,8 @@ class _Hero extends StatelessWidget {
         children: [
           SectionLabel(
             sprint
-                ? '${run.targetDistanceM?.round() ?? 100} m time'
-                : 'Distance',
+                ? context.l10n.targetTime(run.targetDistanceM?.round() ?? 100)
+                : context.l10n.distance,
           ),
           const SizedBox(height: 6),
           FittedBox(
@@ -215,17 +238,18 @@ class _StatsGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final sprint = run.type == RunType.sprint;
+    final l = context.l10n;
     final stats = <(String, String)>[
-      if (sprint) ('Distance', formatDistance(run.distanceM, miles: miles)),
+      if (sprint) (l.distance, formatDistance(run.distanceM, miles: miles)),
       if (!sprint)
-        ('Moving time', formatClock(Duration(milliseconds: run.movingMs))),
+        (l.movingTime, formatClock(Duration(milliseconds: run.movingMs))),
       if (!sprint && run.elapsedMs != run.movingMs)
-        ('Elapsed', formatClock(Duration(milliseconds: run.elapsedMs))),
-      if (sprint) ('Avg speed', formatSpeed(run.avgSpeedMps, miles: miles)),
-      if (!sprint) ('Avg pace', formatPace(run.avgSpeedMps, miles: miles)),
-      ('Top speed', formatSpeed(run.maxSpeedMps, miles: miles)),
-      ('Calories', run.kcal == null ? '–' : '≈ ${run.kcal!.round()} kcal'),
-      if (run.elevGainM != null) ('Elevation', '${run.elevGainM!.round()} m'),
+        (l.elapsed, formatClock(Duration(milliseconds: run.elapsedMs))),
+      if (sprint) (l.avgSpeed, formatSpeed(run.avgSpeedMps, miles: miles)),
+      if (!sprint) (l.avgPace, formatPace(run.avgSpeedMps, miles: miles)),
+      (l.topSpeed, formatSpeed(run.maxSpeedMps, miles: miles)),
+      (l.calories, run.kcal == null ? '–' : l.kcalApprox(run.kcal!.round())),
+      if (run.elevGainM != null) (l.elevation, '${run.elevGainM!.round()} m'),
     ];
 
     return LayoutBuilder(
@@ -299,9 +323,8 @@ class _GpsNote extends StatelessWidget {
         Expanded(
           child: Text(
             none
-                ? 'Recorded without GPS. Speed and distance are not measured, '
-                    'so this run does not count for records.'
-                : 'Recorded with a weak GPS signal. Values may be off.',
+                ? context.l10n.noGpsNote
+                : context.l10n.weakGpsNote,
             style: TextStyle(fontSize: 13, height: 1.35, color: c.muted),
           ),
         ),
@@ -331,7 +354,7 @@ class _SprintSplits extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionLabel('Speed every 10 m'),
+        SectionLabel(context.l10n.speedEvery10m),
         const SizedBox(height: 12),
         SurfaceCard(
           padding: const EdgeInsets.fromLTRB(8, 16, 16, 8),
@@ -443,7 +466,7 @@ class _KmSplits extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionLabel('Splits'),
+        SectionLabel(context.l10n.splits),
         const SizedBox(height: 12),
         SurfaceCard(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -504,7 +527,7 @@ class _RouteSectionState extends ConsumerState<_RouteSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionLabel('Route'),
+        SectionLabel(context.l10n.route),
         const SizedBox(height: 12),
         Stack(
           children: [
@@ -560,7 +583,7 @@ class _RouteSectionState extends ConsumerState<_RouteSection> {
         SpeedLegend(speeds: [for (final p in track) p.speedMps], miles: miles),
         if (!widget.sprint) ...[
           const SizedBox(height: 20),
-          const SectionLabel('Speed'),
+          SectionLabel(context.l10n.speed),
           const SizedBox(height: 12),
           SurfaceCard(
             padding: const EdgeInsets.fromLTRB(8, 16, 16, 8),
@@ -736,7 +759,7 @@ class _NoteCard extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              note ?? 'Add a note',
+              note ?? context.l10n.addNote,
               style: TextStyle(
                 fontSize: 14.5,
                 height: 1.4,

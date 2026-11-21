@@ -87,7 +87,7 @@ best_efforts    runId, kind(100m|400m|1k|5k|10k|21k|top_speed|longest),
 - Özet kutuları: mesafe, süre, hareket süresi, ort./maks hız, tempo, kalori.
 - Sprint için: 10 m'lik ara süreler ve hız-mesafe eğrisi (CSV'deki Kalman verisinden).
 - Endurance için: km ara süreleri tablosu, tempo grafiği, harita (Faz E).
-- Not ekleme ✔; GPX dışa aktarma (Faz F).
+- Not ekleme ✔; GPX dışa aktarma ✔.
 
 **Rekorlar ekranı**
 - Sprint: en iyi 100 m süresi, en yüksek hız.
@@ -168,12 +168,13 @@ kcal/dk ≈ VO2 · kg / 1000 · 5
 - Duraklama süreleri sayılmaz.
 - Kilo girilmemişse kalori gösterilmez.
 
-## 9. Faz F: Cila ve dışa aktarma
+## 9. Faz F: Cila ve dışa aktarma ✔
 
-- [ ] GPX dışa aktarma ve paylaşma (`share_plus`). Bu dosya Strava'ya veya Garmin'e elle yüklenebilir.
-- [ ] Birim desteği (km/mi), Türkçe ve İngilizce arayüz (`flutter_localizations` + ARB dosyaları).
-- [ ] Ayarlar: sesli bildirim aralığı (km / dakika), auto-pause eşikleri, ekranın açık kalması.
-- [ ] Demo modunu yeni ekranlara genişletmek ve README ekran görüntülerini güncellemek.
+- [x] GPX dışa aktarma ve paylaşma (`share_plus`). Bu dosya Strava'ya veya Garmin'e elle yüklenebilir.
+- [x] Birim desteği (km/mi), Türkçe ve İngilizce arayüz (`flutter_localizations` + ARB dosyaları).
+- [x] Ayarlar: dil (sistem / Türkçe / İngilizce) ve ekranın açık kalması.
+- [ ] Sonraya: sesli bildirim aralığı (km / dakika) ve auto-pause eşiklerinin ayarlanabilmesi.
+- [x] Demo modunu yeni ekranlara genişletmek ve README ekran görüntülerini güncellemek.
 
 ## 10. Test stratejisi
 

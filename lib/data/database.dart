@@ -35,6 +35,10 @@ class Profiles extends Table {
   BoolColumn get audioCues => boolean().withDefault(const Constant(true))();
   BoolColumn get autoPause => boolean().withDefault(const Constant(true))();
   BoolColumn get onboarded => boolean().withDefault(const Constant(false))();
+  // v2: null = follow the phone's language; otherwise 'en' or 'tr'.
+  TextColumn get language => text().nullable()();
+  BoolColumn get keepScreenOn =>
+      boolean().withDefault(const Constant(true))();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -107,13 +111,19 @@ class AppDatabase extends _$AppDatabase {
       : super(executor ?? driftDatabase(name: 'sprint_tracker'));
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
         onCreate: (m) async {
           await m.createAll();
           await into(profiles).insert(ProfilesCompanion.insert());
+        },
+        onUpgrade: (m, from, to) async {
+          if (from < 2) {
+            await m.addColumn(profiles, profiles.language);
+            await m.addColumn(profiles, profiles.keepScreenOn);
+          }
         },
         beforeOpen: (details) async {
           // SQLite ignores ON DELETE CASCADE unless this is on.

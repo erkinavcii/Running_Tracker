@@ -1,4 +1,5 @@
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
+import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/services/location_service.dart';
@@ -136,12 +137,17 @@ class TrackingController extends Notifier<TrackingState> {
       FlutterForegroundTask.sendDataToTask(TrackingCmd.snapshot);
       return true;
     }
+    // The app sets Intl's locale to the UI language.
+    final tr = Intl.getCurrentLocale().startsWith('tr');
     final result = await FlutterForegroundTask.startService(
       serviceId: _serviceId,
       serviceTypes: [ForegroundServiceTypes.location],
-      notificationTitle: 'Running · 0 m',
-      notificationText: 'Waiting for GPS…',
-      notificationButtons: trackingButtons(TrackingStatus.running),
+      notificationTitle: tr ? 'Koşuluyor · 0 m' : 'Running · 0 m',
+      notificationText: tr ? 'GPS bekleniyor…' : 'Waiting for GPS…',
+      notificationButtons: trackingButtons(
+        TrackingStatus.running,
+        turkish: tr,
+      ),
       callback: startTrackingCallback,
     );
     return result is ServiceRequestSuccess;

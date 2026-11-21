@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/format.dart';
 import '../../../core/route.dart';
+import '../../../core/services/screen.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/common.dart';
 import '../../../core/widgets/pictogram.dart';
@@ -17,6 +18,7 @@ import '../../history/screens/run_detail_screen.dart';
 import '../tracking_engine.dart';
 import '../tracking_service.dart';
 import '../widgets/hold_button.dart';
+import '../../../core/l10n.dart';
 
 /// Endurance run: start screen before the run, live stats during it.
 /// Closing this screen does not stop the run — the service keeps going.
@@ -30,6 +32,20 @@ class LiveRunScreen extends ConsumerStatefulWidget {
 class _LiveRunScreenState extends ConsumerState<LiveRunScreen> {
   bool _starting = false;
   String? _error;
+  bool _wake = false;
+
+  /// Keeps the display on while a run is shown, if the profile asks for it.
+  void _syncWakelock(bool want) {
+    if (want == _wake) return;
+    _wake = want;
+    keepScreenOn(want);
+  }
+
+  @override
+  void dispose() {
+    if (_wake) keepScreenOn(false);
+    super.dispose();
+  }
 
   Future<void> _start() async {
     final ctrl = ref.read(trackingProvider.notifier);
@@ -43,17 +59,15 @@ class _LiveRunScreenState extends ConsumerState<LiveRunScreen> {
     if (blocker == StartBlocker.location) {
       setState(() {
         _starting = false;
-        _error = 'Location permission is needed to track the run.';
+        _error = context.l10n.locationNeeded;
       });
       return;
     }
     if (blocker == StartBlocker.notifications) {
       final go = await _confirm(
-        title: 'No notification',
-        body:
-            'Without notification permission you can\'t see or control '
-            'the run from the lock screen. Start anyway?',
-        ok: 'START ANYWAY',
+        title: context.l10n.noNotificationTitle,
+        body: context.l10n.noNotificationBody,
+        ok: context.l10n.startAnyway,
       );
       if (!mounted) return;
       if (go != true) {
@@ -65,13 +79,10 @@ class _LiveRunScreenState extends ConsumerState<LiveRunScreen> {
     if (await ctrl.shouldAskBatteryExemption()) {
       if (!mounted) return;
       final ok = await _confirm(
-        title: 'Keep tracking with the screen off',
-        body:
-            'Some phones (Samsung especially) stop apps in the background '
-            'to save battery. Allow Sprint Tracker to run unrestricted so a '
-            'run in your pocket is never cut short.',
-        ok: 'ALLOW',
-        cancel: 'Not now',
+        title: context.l10n.batteryTitle,
+        body: context.l10n.batteryBody,
+        ok: context.l10n.allow,
+        cancel: context.l10n.notNow,
       );
       await ctrl.markBatteryAsked();
       if (ok == true) await ctrl.requestBatteryExemption();
@@ -81,7 +92,7 @@ class _LiveRunScreenState extends ConsumerState<LiveRunScreen> {
     if (!mounted) return;
     setState(() {
       _starting = false;
-      if (!started) _error = 'Could not start tracking. Try again.';
+      if (!started) _error = context.l10n.couldNotStart;
     });
   }
 
@@ -115,7 +126,9 @@ class _LiveRunScreenState extends ConsumerState<LiveRunScreen> {
   @override
   Widget build(BuildContext context) {
     final tracking = ref.watch(trackingProvider);
-    final miles = ref.watch(profileProvider).valueOrNull?.useMiles ?? false;
+    final profile = ref.watch(profileProvider).valueOrNull;
+    final miles = profile?.useMiles ?? false;
+    _syncWakelock(tracking.isActive && (profile?.keepScreenOn ?? true));
 
     // The service saved the run: show it.
     ref.listen(trackingProvider, (_, next) {
@@ -129,8 +142,8 @@ class _LiveRunScreenState extends ConsumerState<LiveRunScreen> {
       } else if (next.finishedEmpty) {
         ref.read(trackingProvider.notifier).acknowledgeFinished();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Run discarded: no GPS fix was recorded.'),
+          SnackBar(
+            content: Text(context.l10n.runDiscardedNoGps),
           ),
         );
         Navigator.pop(context);
@@ -140,7 +153,7 @@ class _LiveRunScreenState extends ConsumerState<LiveRunScreen> {
     final snap = tracking.snapshot;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Run'),
+        title: Text(context.l10n.run),
         actions: [
           if (snap != null)
             Padding(
@@ -187,7 +200,7 @@ class _StartView extends StatelessWidget {
           Center(child: Pictogram(Picto.jog, size: 120, color: c.accent)),
           const SizedBox(height: 24),
           Text(
-            'Ready when you are',
+            context.l10n.readyTitle,
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 26,
@@ -197,8 +210,7 @@ class _StartView extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            'Put the phone in your pocket. Distance, time and pace stay in '
-            'the notification, and you can pause from the lock screen.',
+            context.l10n.readyBody,
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 15, height: 1.45, color: c.muted),
           ),
@@ -224,7 +236,7 @@ class _StartView extends StatelessWidget {
                       ),
                     )
                     : const Icon(Icons.play_arrow_rounded),
-            label: const Text('START RUN'),
+            label: Text(context.l10n.startRun),
           ),
         ],
       ),
@@ -264,7 +276,7 @@ class _LiveView extends ConsumerWidget {
                       child: Column(
                         children: [
                           Text(
-                            snap.autoPaused ? 'AUTO-PAUSED' : 'PAUSED',
+                            snap.autoPaused ? context.l10n.autoPausedCaps : context.l10n.pausedCaps,
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontWeight: FontWeight.w800,
@@ -274,7 +286,7 @@ class _LiveView extends ConsumerWidget {
                           ),
                           if (snap.autoPaused)
                             Text(
-                              'Resumes when you start running',
+                              context.l10n.resumesWhenRunning,
                               textAlign: TextAlign.center,
                               style: TextStyle(fontSize: 12, color: c.muted),
                             ),
@@ -286,7 +298,7 @@ class _LiveView extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const SectionLabel('Distance'),
+                        SectionLabel(context.l10n.distance),
                         const SizedBox(height: 6),
                         FittedBox(
                           fit: BoxFit.scaleDown,
@@ -326,7 +338,7 @@ class _LiveView extends ConsumerWidget {
                     children: [
                       Expanded(
                         child: _Tile(
-                          label: 'Time',
+                          label: context.l10n.time,
                           value: formatClock(
                             Duration(milliseconds: snap.movingMs),
                           ),
@@ -335,7 +347,7 @@ class _LiveView extends ConsumerWidget {
                       const SizedBox(width: 10),
                       Expanded(
                         child: _Tile(
-                          label: 'Pace',
+                          label: context.l10n.pace,
                           value:
                               formatPace(
                                 snap.currentSpeedMps,
@@ -351,7 +363,7 @@ class _LiveView extends ConsumerWidget {
                     children: [
                       Expanded(
                         child: _Tile(
-                          label: 'Avg pace',
+                          label: context.l10n.avgPace,
                           value:
                               formatPace(
                                 snap.avgSpeedMps,
@@ -362,7 +374,7 @@ class _LiveView extends ConsumerWidget {
                       const SizedBox(width: 10),
                       Expanded(
                         child: _Tile(
-                          label: 'Calories',
+                          label: context.l10n.calories,
                           value:
                               snap.kcal == null ? '–' : '${snap.kcal!.round()}',
                         ),
@@ -371,9 +383,11 @@ class _LiveView extends ConsumerWidget {
                   ),
                   const SizedBox(height: 14),
                   Text(
-                    'Elapsed ${formatClock(Duration(milliseconds: snap.elapsedMs))}'
-                    ' · Climb ${snap.elevGainM.round()} m'
-                    ' · ${snap.fixCount} GPS fixes · swipe left for the map',
+                    context.l10n.liveFooter(
+                      formatClock(Duration(milliseconds: snap.elapsedMs)),
+                      snap.elevGainM.round(),
+                      snap.fixCount,
+                    ),
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 12.5,
@@ -397,13 +411,13 @@ class _LiveView extends ConsumerWidget {
                         child: FilledButton.icon(
                           onPressed: ctrl.resume,
                           icon: const Icon(Icons.play_arrow_rounded),
-                          label: const Text('RESUME'),
+                          label: Text(context.l10n.resumeCaps),
                         ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: HoldButton(
-                          label: 'HOLD TO FINISH',
+                          label: context.l10n.holdToFinish,
                           onComplete: ctrl.finish,
                         ),
                       ),
@@ -412,7 +426,7 @@ class _LiveView extends ConsumerWidget {
                   : OutlinedButton.icon(
                     onPressed: ctrl.pause,
                     icon: const Icon(Icons.pause_rounded),
-                    label: const Text('PAUSE'),
+                    label: Text(context.l10n.pauseCaps),
                   ),
         ),
       ],
@@ -470,9 +484,9 @@ class _GpsChip extends StatelessWidget {
     final acc = snap.gpsAccuracyM;
     final (Color dot, String text) =
         snap.gpsLost
-            ? (c.warn, acc == null ? 'Searching' : 'GPS lost')
+            ? (c.warn, acc == null ? context.l10n.gpsSearching : context.l10n.gpsLost)
             : (acc == null
-                ? (c.muted, 'No fix')
+                ? (c.muted, context.l10n.gpsNoFix)
                 : (acc <= 8 ? c.ok : c.warn, '±${acc.toStringAsFixed(0)} m'));
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -552,7 +566,7 @@ class _LiveMapState extends ConsumerState<_LiveMap> {
     if (_track.isEmpty) {
       return Center(
         child: Text(
-          'Waiting for the first GPS points…',
+          context.l10n.waitingForPoints,
           style: TextStyle(color: c.muted),
         ),
       );
@@ -617,7 +631,7 @@ class _LiveMapState extends ConsumerState<_LiveMap> {
                 right: 12,
                 top: 12,
                 child: FloatingActionButton.small(
-                  tooltip: 'Follow me',
+                  tooltip: context.l10n.followMe,
                   onPressed: () {
                     setState(() => _follow = true);
                     _map.move(last, _map.camera.zoom);

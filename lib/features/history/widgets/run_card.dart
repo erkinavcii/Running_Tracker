@@ -6,6 +6,7 @@ import '../../../core/widgets/common.dart';
 import '../../../core/widgets/pictogram.dart';
 import '../../../data/database.dart';
 import '../../map/route_preview.dart';
+import '../../../core/l10n.dart';
 
 class RunCard extends StatelessWidget {
   final Run run;
@@ -29,11 +30,11 @@ class RunCard extends StatelessWidget {
         ? '${formatSprintTime(Duration(milliseconds: run.sprintTimeMs ?? run.elapsedMs))} s'
         : formatDistance(run.distanceM, miles: miles);
     final details = <String>[
-      if (sprint) formatDistance(run.distanceM, miles: miles),
       if (!sprint) formatClock(Duration(milliseconds: run.movingMs)),
-      if (sprint) 'top ${formatSpeed(run.maxSpeedMps, miles: miles)}',
+      if (sprint)
+        context.l10n.topSpeedShort(formatSpeed(run.maxSpeedMps, miles: miles)),
       if (!sprint) formatPace(run.avgSpeedMps, miles: miles),
-      if (run.kcal != null) '≈ ${run.kcal!.round()} kcal',
+      if (run.kcal != null) context.l10n.kcalApprox(run.kcal!.round()),
     ];
 
     return SurfaceCard(
@@ -69,7 +70,7 @@ class RunCard extends StatelessWidget {
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     Text(
-                      sprint ? 'Sprint' : 'Run',
+                      sprint ? context.l10n.sprint : context.l10n.run,
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,

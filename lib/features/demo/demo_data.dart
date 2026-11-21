@@ -5,6 +5,7 @@ import 'package:drift/native.dart';
 
 import '../../data/database.dart';
 import '../../data/run_repository.dart';
+import '../tracking/tracking_engine.dart';
 
 /// In-memory database filled with plausible sprints for demo builds and
 /// screenshots. Never touches the real on-device database.
@@ -56,5 +57,95 @@ Future<AppDatabase> buildDemoDatabase({int seed = 7}) async {
       ));
     }
   }
+
+  // Endurance runs: loops in a park, a little faster each week.
+  for (final (daysAgo, km, mps) in [
+    (26, 4.2, 2.85),
+    (19, 5.1, 2.95),
+    (12, 6.3, 3.0),
+    (5, 5.0, 3.15),
+    (1, 8.1, 3.05),
+  ]) {
+    final startedAt = now.subtract(Duration(days: daysAgo, hours: 1));
+    await _demoEnduranceRun(repo, startedAt, km * 1000, mps, r);
+  }
   return db;
+}
+
+/// Feeds a synthetic loop route through the real tracking engine and
+/// finishes it like the service does, so maps, splits and records are real.
+Future<void> _demoEnduranceRun(
+  RunRepository repo,
+  DateTime startedAt,
+  double distanceM,
+  double baseMps,
+  Random r,
+) async {
+  const lat0 = 41.0058, lon0 = 28.9768; // a public park
+  final k = cos(lat0 * pi / 180);
+  const loopM = 1650.0;
+  final runId = await repo.createEnduranceRun(startedAt);
+  final engine = TrackingEngine(
+    runId: runId,
+    startedAt: startedAt,
+    weightKg: 72,
+  );
+  var t = 0, along = 0.0;
+  final phase = r.nextDouble() * 2 * pi;
+  while (along < distanceM) {
+    // Pace drifts over the run plus short surges.
+    final v = baseMps +
+        0.25 * sin(along / 900 + phase) +
+        0.15 * sin(along / 170) +
+        (r.nextDouble() - 0.5) * 0.12;
+    along += v;
+    final a = along / loopM * 2 * pi;
+    // Irregular loop (~1.65 km) so the map looks like a real route.
+    final rad = 230 + 40 * sin(3 * a) + 15 * cos(5 * a);
+    final dx = rad * 1.25 * cos(a), dy = rad * sin(a);
+    engine.addFix(
+      nowMs: t,
+      lat: lat0 + dy / 111195,
+      lon: lon0 + dx / (111195 * k),
+      speedMps: v,
+      accuracyM: 3 + r.nextDouble() * 2,
+      speedAccMps: 0.3,
+      altM: 30 + 9 * sin(a) + (r.nextDouble() - 0.5) * 2,
+    );
+    t += 1000;
+  }
+  final snap = engine.snapshot(t);
+  final pts = engine.takePending();
+  await repo.saveProgress(
+    runId,
+    0,
+    [
+      for (final p in pts)
+        StoredPoint(
+          tMs: p.tMs,
+          lat: p.lat,
+          lon: p.lon,
+          speedMps: p.speedMps,
+          speedAccMps: p.speedAccMps,
+          accM: p.accM,
+          altM: p.altM,
+          segment: p.segment,
+        ),
+    ],
+    RunProgress(
+      status: RunStatus.active,
+      elapsedMs: snap.elapsedMs,
+      movingMs: snap.movingMs,
+      distanceM: snap.distanceM,
+      maxSpeedMps: snap.maxSpeedMps,
+      kcal: snap.kcal,
+    ),
+  );
+  await repo.finishEndurance(
+    runId,
+    endedAt: startedAt.add(Duration(milliseconds: t)),
+    elapsedMs: snap.elapsedMs,
+    movingMs: snap.movingMs,
+    kcal: snap.kcal,
+  );
 }

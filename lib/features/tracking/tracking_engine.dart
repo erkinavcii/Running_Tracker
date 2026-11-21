@@ -77,25 +77,28 @@ class TrackingSnapshot {
     fixCount: (m['fixCount'] as num).toInt(),
   );
 
-  /// "Running · 5.24 km" for the notification title.
-  String notificationTitle({bool miles = false}) {
+  /// "Running · 5.24 km" / "Koşuluyor · 5.24 km" for the notification title.
+  String notificationTitle({bool miles = false, bool turkish = false}) {
     final prefix = switch (status) {
-      TrackingStatus.paused => autoPaused ? 'Auto-paused' : 'Paused',
-      TrackingStatus.finished => 'Finished',
-      TrackingStatus.running => 'Running',
+      TrackingStatus.paused =>
+        autoPaused
+            ? (turkish ? 'Otomatik duraklatıldı' : 'Auto-paused')
+            : (turkish ? 'Duraklatıldı' : 'Paused'),
+      TrackingStatus.finished => turkish ? 'Bitti' : 'Finished',
+      TrackingStatus.running => turkish ? 'Koşuluyor' : 'Running',
     };
     return '$prefix · ${formatDistance(distanceM, miles: miles)}';
   }
 
   /// "28:13 · 5:23 /km · ≈ 412 kcal" for the notification body.
-  String notificationText({bool miles = false}) => [
+  String notificationText({bool miles = false, bool turkish = false}) => [
     formatClock(Duration(milliseconds: movingMs)),
     formatPace(
       status == TrackingStatus.running ? currentSpeedMps : avgSpeedMps,
       miles: miles,
     ),
     if (kcal != null) '≈ ${kcal!.round()} kcal',
-    if (gpsLost) 'GPS lost',
+    if (gpsLost) turkish ? 'GPS yok' : 'GPS lost',
   ].join(' · ');
 }
 

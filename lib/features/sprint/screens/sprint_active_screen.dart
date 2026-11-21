@@ -6,6 +6,7 @@ import '../../../core/widgets/pictogram.dart';
 import '../../../data/effort_labels.dart';
 import '../../../data/run_repository.dart';
 import '../providers/sprint_controller.dart';
+import '../../../core/l10n.dart';
 
 class SprintActiveScreen extends ConsumerStatefulWidget {
   const SprintActiveScreen({super.key});
@@ -41,7 +42,7 @@ class _SprintActiveScreenState extends ConsumerState<SprintActiveScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('100 m Sprint'),
+        title: Text(context.l10n.sprintTitle),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 16),
@@ -72,7 +73,7 @@ class _SprintActiveScreenState extends ConsumerState<SprintActiveScreen> {
                     children: [
                       Expanded(
                         child: _MetricTile(
-                          label: 'Speed',
+                          label: context.l10n.speed,
                           value: (data.currentSpeed * 3.6).toStringAsFixed(1),
                           unit: 'km/h',
                         ),
@@ -80,7 +81,7 @@ class _SprintActiveScreenState extends ConsumerState<SprintActiveScreen> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: _MetricTile(
-                          label: 'Top speed',
+                          label: context.l10n.topSpeed,
                           value: (data.maxSpeed * 3.6).toStringAsFixed(1),
                           unit: 'km/h',
                           emphasized: data.maxSpeed > 0,
@@ -89,7 +90,7 @@ class _SprintActiveScreenState extends ConsumerState<SprintActiveScreen> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: _MetricTile(
-                          label: 'Distance',
+                          label: context.l10n.distance,
                           value: data.distanceRun.toStringAsFixed(1),
                           unit: 'm',
                         ),
@@ -100,7 +101,7 @@ class _SprintActiveScreenState extends ConsumerState<SprintActiveScreen> {
                       data.elapsed > Duration.zero) ...[
                     const SizedBox(height: 10),
                     _MetricTile(
-                      label: 'Average speed',
+                      label: context.l10n.averageSpeed,
                       value: (data.distanceRun /
                               (data.elapsed.inMilliseconds / 1000) *
                               3.6)
@@ -149,10 +150,10 @@ class _GpsChip extends StatelessWidget {
     final String text;
     if (lost) {
       dot = c.warn;
-      text = 'GPS lost';
+      text = context.l10n.gpsLost;
     } else if (acc == null) {
       dot = c.muted;
-      text = 'No fix';
+      text = context.l10n.gpsNoFix;
     } else {
       dot = acc <= 5 ? c.ok : (acc <= 15 ? c.warn : c.accent);
       text = '±${acc.toStringAsFixed(acc < 10 ? 1 : 0)} m';
@@ -206,40 +207,38 @@ class _GpsWarning extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = AppColors.of(context);
     final acc = data.gpsAccuracy;
+    final l = context.l10n;
 
     final (IconData icon, String title, String body, bool settings) =
         switch (data.gpsIssue) {
       GpsIssue.permissionDenied => (
           Icons.location_disabled_rounded,
-          'Location permission needed',
-          'Allow precise location so speed and distance can be measured.',
+          l.issuePermissionTitle,
+          l.issuePermissionBody,
           true,
         ),
       GpsIssue.disabled => (
           Icons.location_off_rounded,
-          'Location is turned off',
-          'Turn on location (GPS) in the system settings to start.',
+          l.issueDisabledTitle,
+          l.issueDisabledBody,
           true,
         ),
       GpsIssue.noFix => (
           Icons.gps_off_rounded,
-          'No GPS signal',
-          'No satellite fix after ${SprintController.calibrationTimeout.inSeconds} s. '
-              'Move outside, away from buildings. The timer will run, '
-              'but speed and distance will stay at zero.',
+          l.issueNoFixTitle,
+          l.issueNoFixBody(SprintController.calibrationTimeout.inSeconds),
           false,
         ),
       GpsIssue.weak => (
           Icons.gps_not_fixed_rounded,
-          'Weak GPS signal',
-          'Accuracy is only ±${acc?.toStringAsFixed(0) ?? '?'} m. '
-              'Results may be off by several metres.',
+          l.issueWeakTitle,
+          l.issueWeakBody(acc?.toStringAsFixed(0) ?? '?'),
           false,
         ),
       GpsIssue.none => (
           Icons.gps_off_rounded,
-          'GPS signal lost',
-          'Speed fades out until the signal returns.',
+          l.issueLostTitle,
+          l.issueLostBody,
           false,
         ),
     };
@@ -294,12 +293,12 @@ class _GpsWarning extends StatelessWidget {
                     TextButton(
                       onPressed: controller.openGpsSettings,
                       style: TextButton.styleFrom(foregroundColor: c.ink),
-                      child: const Text('Open settings'),
+                      child: Text(context.l10n.openSettings),
                     ),
                   TextButton(
                     onPressed: controller.startCalibration,
                     style: TextButton.styleFrom(foregroundColor: c.warn),
-                    child: const Text('Try again'),
+                    child: Text(context.l10n.tryAgain),
                   ),
                 ],
               ),
@@ -341,7 +340,7 @@ class _NewPrBanner extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'New personal record!',
+                    context.l10n.newPr,
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w800,
@@ -370,29 +369,30 @@ class _StatusHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = AppColors.of(context);
+    final l = context.l10n;
     final (Picto picto, String title, String hint) = switch (data.state) {
       SprintState.calibrating => (
           Picto.start,
-          'Calibrating GPS',
-          'Stand still outside until the fix settles.',
+          l.stateCalibrating,
+          l.stateCalibratingBody,
         ),
       SprintState.ready => (
           Picto.start,
-          'Ready',
-          'Take your mark: 3-second countdown.',
+          l.stateReady,
+          l.stateReadyBody,
         ),
-      SprintState.countdown => (Picto.start, 'Set…', 'Hold still.'),
+      SprintState.countdown => (Picto.start, l.stateSet, l.stateSetBody),
       SprintState.running => (
           Picto.sprint,
-          'Go!',
-          'Stops automatically at the finish line.',
+          l.stateGo,
+          l.stateGoBody,
         ),
       SprintState.finished => (
           Picto.finish,
-          'Finished',
+          l.stateFinished,
           data.savedRunId != null
-              ? 'Saved to your history.'
-              : 'Finish time is interpolated between GPS fixes.',
+              ? l.stateSaved
+              : l.stateInterpolated,
         ),
     };
 
@@ -462,7 +462,7 @@ class _TimeDisplay extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _Label(isCountdown ? 'Starting in' : 'Time'),
+          _Label(isCountdown ? context.l10n.startingIn : context.l10n.time),
           const SizedBox(height: 10),
           if (isCountdown)
             Text('${data.countdown}', style: big.copyWith(color: c.accent))
@@ -523,10 +523,10 @@ class _TrackProgress extends StatelessWidget {
       children: [
         Row(
           children: [
-            const _Label('Progress'),
+            _Label(context.l10n.progress),
             const Spacer(),
             Text(
-              '${(target - distance).clamp(0, target).toStringAsFixed(0)} m to go',
+              context.l10n.metersToGo((target - distance).clamp(0, target).round()),
               style: TextStyle(
                 fontSize: 12.5,
                 fontWeight: FontWeight.w600,
@@ -696,7 +696,7 @@ class _Telemetry extends StatelessWidget {
                 children: [
                   Icon(Icons.sensors_rounded, size: 16, color: c.muted),
                   const SizedBox(width: 8),
-                  const _Label('Telemetry'),
+                  _Label(context.l10n.telemetry),
                   const Spacer(),
                   Icon(
                     expanded
@@ -743,7 +743,7 @@ class _ActionButton extends StatelessWidget {
         return OutlinedButton.icon(
           onPressed: controller.startCalibration,
           icon: const Icon(Icons.refresh_rounded),
-          label: const Text('TRY AGAIN'),
+          label: Text(context.l10n.tryAgainCaps),
         );
       case SprintState.calibrating:
         return OutlinedButton.icon(
@@ -753,14 +753,16 @@ class _ActionButton extends StatelessWidget {
             height: 16,
             child: CircularProgressIndicator(strokeWidth: 2, color: c.muted),
           ),
-          label: const Text('WAITING FOR GPS'),
+          label: Text(context.l10n.waitingForGps),
         );
       case SprintState.ready:
         return FilledButton.icon(
           onPressed: controller.startCountdown,
           icon: const Icon(Icons.flag_rounded),
           label: Text(
-            data.gpsIssue == GpsIssue.none ? 'START SPRINT' : 'START ANYWAY',
+            data.gpsIssue == GpsIssue.none
+                ? context.l10n.startSprint
+                : context.l10n.startAnyway,
           ),
         );
       case SprintState.countdown:
@@ -768,13 +770,13 @@ class _ActionButton extends StatelessWidget {
         return OutlinedButton.icon(
           onPressed: controller.cancelRun,
           icon: const Icon(Icons.close_rounded),
-          label: const Text('CANCEL'),
+          label: Text(context.l10n.cancelCaps),
         );
       case SprintState.finished:
         return FilledButton.icon(
           onPressed: controller.startCalibration,
           icon: const Icon(Icons.replay_rounded),
-          label: const Text('RUN AGAIN'),
+          label: Text(context.l10n.runAgain),
         );
     }
   }
@@ -788,7 +790,7 @@ class _Label extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Text(
-      text.toUpperCase(),
+      context.upper(text),
       style: TextStyle(
         fontSize: 11,
         fontWeight: FontWeight.w700,

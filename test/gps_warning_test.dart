@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sprint_tracker/l10n/app_localizations.dart';
 
 import 'package:sprint_tracker/core/services/location_service.dart';
 import 'package:sprint_tracker/core/services/sensor_fusion_service.dart';
@@ -40,6 +41,8 @@ Future<void> _pump(WidgetTester tester, SprintData data) async {
       ],
       child: MaterialApp(
         theme: buildTheme(Brightness.light),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: const SprintActiveScreen(),
       ),
     ),

@@ -120,6 +120,32 @@ class $ProfilesTable extends Profiles with TableInfo<$ProfilesTable, Profile> {
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _languageMeta = const VerificationMeta(
+    'language',
+  );
+  @override
+  late final GeneratedColumn<String> language = GeneratedColumn<String>(
+    'language',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _keepScreenOnMeta = const VerificationMeta(
+    'keepScreenOn',
+  );
+  @override
+  late final GeneratedColumn<bool> keepScreenOn = GeneratedColumn<bool>(
+    'keep_screen_on',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("keep_screen_on" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -131,6 +157,8 @@ class $ProfilesTable extends Profiles with TableInfo<$ProfilesTable, Profile> {
     audioCues,
     autoPause,
     onboarded,
+    language,
+    keepScreenOn,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -189,6 +217,21 @@ class $ProfilesTable extends Profiles with TableInfo<$ProfilesTable, Profile> {
         onboarded.isAcceptableOrUnknown(data['onboarded']!, _onboardedMeta),
       );
     }
+    if (data.containsKey('language')) {
+      context.handle(
+        _languageMeta,
+        language.isAcceptableOrUnknown(data['language']!, _languageMeta),
+      );
+    }
+    if (data.containsKey('keep_screen_on')) {
+      context.handle(
+        _keepScreenOnMeta,
+        keepScreenOn.isAcceptableOrUnknown(
+          data['keep_screen_on']!,
+          _keepScreenOnMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -241,6 +284,15 @@ class $ProfilesTable extends Profiles with TableInfo<$ProfilesTable, Profile> {
             DriftSqlType.bool,
             data['${effectivePrefix}onboarded'],
           )!,
+      language: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}language'],
+      ),
+      keepScreenOn:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.bool,
+            data['${effectivePrefix}keep_screen_on'],
+          )!,
     );
   }
 
@@ -265,6 +317,8 @@ class Profile extends DataClass implements Insertable<Profile> {
   final bool audioCues;
   final bool autoPause;
   final bool onboarded;
+  final String? language;
+  final bool keepScreenOn;
   const Profile({
     required this.id,
     this.weightKg,
@@ -275,6 +329,8 @@ class Profile extends DataClass implements Insertable<Profile> {
     required this.audioCues,
     required this.autoPause,
     required this.onboarded,
+    this.language,
+    required this.keepScreenOn,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -296,6 +352,10 @@ class Profile extends DataClass implements Insertable<Profile> {
     map['audio_cues'] = Variable<bool>(audioCues);
     map['auto_pause'] = Variable<bool>(autoPause);
     map['onboarded'] = Variable<bool>(onboarded);
+    if (!nullToAbsent || language != null) {
+      map['language'] = Variable<String>(language);
+    }
+    map['keep_screen_on'] = Variable<bool>(keepScreenOn);
     return map;
   }
 
@@ -319,6 +379,11 @@ class Profile extends DataClass implements Insertable<Profile> {
       audioCues: Value(audioCues),
       autoPause: Value(autoPause),
       onboarded: Value(onboarded),
+      language:
+          language == null && nullToAbsent
+              ? const Value.absent()
+              : Value(language),
+      keepScreenOn: Value(keepScreenOn),
     );
   }
 
@@ -339,6 +404,8 @@ class Profile extends DataClass implements Insertable<Profile> {
       audioCues: serializer.fromJson<bool>(json['audioCues']),
       autoPause: serializer.fromJson<bool>(json['autoPause']),
       onboarded: serializer.fromJson<bool>(json['onboarded']),
+      language: serializer.fromJson<String?>(json['language']),
+      keepScreenOn: serializer.fromJson<bool>(json['keepScreenOn']),
     );
   }
   @override
@@ -356,6 +423,8 @@ class Profile extends DataClass implements Insertable<Profile> {
       'audioCues': serializer.toJson<bool>(audioCues),
       'autoPause': serializer.toJson<bool>(autoPause),
       'onboarded': serializer.toJson<bool>(onboarded),
+      'language': serializer.toJson<String?>(language),
+      'keepScreenOn': serializer.toJson<bool>(keepScreenOn),
     };
   }
 
@@ -369,6 +438,8 @@ class Profile extends DataClass implements Insertable<Profile> {
     bool? audioCues,
     bool? autoPause,
     bool? onboarded,
+    Value<String?> language = const Value.absent(),
+    bool? keepScreenOn,
   }) => Profile(
     id: id ?? this.id,
     weightKg: weightKg.present ? weightKg.value : this.weightKg,
@@ -379,6 +450,8 @@ class Profile extends DataClass implements Insertable<Profile> {
     audioCues: audioCues ?? this.audioCues,
     autoPause: autoPause ?? this.autoPause,
     onboarded: onboarded ?? this.onboarded,
+    language: language.present ? language.value : this.language,
+    keepScreenOn: keepScreenOn ?? this.keepScreenOn,
   );
   Profile copyWithCompanion(ProfilesCompanion data) {
     return Profile(
@@ -391,6 +464,11 @@ class Profile extends DataClass implements Insertable<Profile> {
       audioCues: data.audioCues.present ? data.audioCues.value : this.audioCues,
       autoPause: data.autoPause.present ? data.autoPause.value : this.autoPause,
       onboarded: data.onboarded.present ? data.onboarded.value : this.onboarded,
+      language: data.language.present ? data.language.value : this.language,
+      keepScreenOn:
+          data.keepScreenOn.present
+              ? data.keepScreenOn.value
+              : this.keepScreenOn,
     );
   }
 
@@ -405,7 +483,9 @@ class Profile extends DataClass implements Insertable<Profile> {
           ..write('useMiles: $useMiles, ')
           ..write('audioCues: $audioCues, ')
           ..write('autoPause: $autoPause, ')
-          ..write('onboarded: $onboarded')
+          ..write('onboarded: $onboarded, ')
+          ..write('language: $language, ')
+          ..write('keepScreenOn: $keepScreenOn')
           ..write(')'))
         .toString();
   }
@@ -421,6 +501,8 @@ class Profile extends DataClass implements Insertable<Profile> {
     audioCues,
     autoPause,
     onboarded,
+    language,
+    keepScreenOn,
   );
   @override
   bool operator ==(Object other) =>
@@ -434,7 +516,9 @@ class Profile extends DataClass implements Insertable<Profile> {
           other.useMiles == this.useMiles &&
           other.audioCues == this.audioCues &&
           other.autoPause == this.autoPause &&
-          other.onboarded == this.onboarded);
+          other.onboarded == this.onboarded &&
+          other.language == this.language &&
+          other.keepScreenOn == this.keepScreenOn);
 }
 
 class ProfilesCompanion extends UpdateCompanion<Profile> {
@@ -447,6 +531,8 @@ class ProfilesCompanion extends UpdateCompanion<Profile> {
   final Value<bool> audioCues;
   final Value<bool> autoPause;
   final Value<bool> onboarded;
+  final Value<String?> language;
+  final Value<bool> keepScreenOn;
   const ProfilesCompanion({
     this.id = const Value.absent(),
     this.weightKg = const Value.absent(),
@@ -457,6 +543,8 @@ class ProfilesCompanion extends UpdateCompanion<Profile> {
     this.audioCues = const Value.absent(),
     this.autoPause = const Value.absent(),
     this.onboarded = const Value.absent(),
+    this.language = const Value.absent(),
+    this.keepScreenOn = const Value.absent(),
   });
   ProfilesCompanion.insert({
     this.id = const Value.absent(),
@@ -468,6 +556,8 @@ class ProfilesCompanion extends UpdateCompanion<Profile> {
     this.audioCues = const Value.absent(),
     this.autoPause = const Value.absent(),
     this.onboarded = const Value.absent(),
+    this.language = const Value.absent(),
+    this.keepScreenOn = const Value.absent(),
   });
   static Insertable<Profile> custom({
     Expression<int>? id,
@@ -479,6 +569,8 @@ class ProfilesCompanion extends UpdateCompanion<Profile> {
     Expression<bool>? audioCues,
     Expression<bool>? autoPause,
     Expression<bool>? onboarded,
+    Expression<String>? language,
+    Expression<bool>? keepScreenOn,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -490,6 +582,8 @@ class ProfilesCompanion extends UpdateCompanion<Profile> {
       if (audioCues != null) 'audio_cues': audioCues,
       if (autoPause != null) 'auto_pause': autoPause,
       if (onboarded != null) 'onboarded': onboarded,
+      if (language != null) 'language': language,
+      if (keepScreenOn != null) 'keep_screen_on': keepScreenOn,
     });
   }
 
@@ -503,6 +597,8 @@ class ProfilesCompanion extends UpdateCompanion<Profile> {
     Value<bool>? audioCues,
     Value<bool>? autoPause,
     Value<bool>? onboarded,
+    Value<String?>? language,
+    Value<bool>? keepScreenOn,
   }) {
     return ProfilesCompanion(
       id: id ?? this.id,
@@ -514,6 +610,8 @@ class ProfilesCompanion extends UpdateCompanion<Profile> {
       audioCues: audioCues ?? this.audioCues,
       autoPause: autoPause ?? this.autoPause,
       onboarded: onboarded ?? this.onboarded,
+      language: language ?? this.language,
+      keepScreenOn: keepScreenOn ?? this.keepScreenOn,
     );
   }
 
@@ -549,6 +647,12 @@ class ProfilesCompanion extends UpdateCompanion<Profile> {
     if (onboarded.present) {
       map['onboarded'] = Variable<bool>(onboarded.value);
     }
+    if (language.present) {
+      map['language'] = Variable<String>(language.value);
+    }
+    if (keepScreenOn.present) {
+      map['keep_screen_on'] = Variable<bool>(keepScreenOn.value);
+    }
     return map;
   }
 
@@ -563,7 +667,9 @@ class ProfilesCompanion extends UpdateCompanion<Profile> {
           ..write('useMiles: $useMiles, ')
           ..write('audioCues: $audioCues, ')
           ..write('autoPause: $autoPause, ')
-          ..write('onboarded: $onboarded')
+          ..write('onboarded: $onboarded, ')
+          ..write('language: $language, ')
+          ..write('keepScreenOn: $keepScreenOn')
           ..write(')'))
         .toString();
   }
@@ -3130,6 +3236,8 @@ typedef $$ProfilesTableCreateCompanionBuilder =
       Value<bool> audioCues,
       Value<bool> autoPause,
       Value<bool> onboarded,
+      Value<String?> language,
+      Value<bool> keepScreenOn,
     });
 typedef $$ProfilesTableUpdateCompanionBuilder =
     ProfilesCompanion Function({
@@ -3142,6 +3250,8 @@ typedef $$ProfilesTableUpdateCompanionBuilder =
       Value<bool> audioCues,
       Value<bool> autoPause,
       Value<bool> onboarded,
+      Value<String?> language,
+      Value<bool> keepScreenOn,
     });
 
 class $$ProfilesTableFilterComposer
@@ -3196,6 +3306,16 @@ class $$ProfilesTableFilterComposer
 
   ColumnFilters<bool> get onboarded => $composableBuilder(
     column: $table.onboarded,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get language => $composableBuilder(
+    column: $table.language,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get keepScreenOn => $composableBuilder(
+    column: $table.keepScreenOn,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -3253,6 +3373,16 @@ class $$ProfilesTableOrderingComposer
     column: $table.onboarded,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get language => $composableBuilder(
+    column: $table.language,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get keepScreenOn => $composableBuilder(
+    column: $table.keepScreenOn,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$ProfilesTableAnnotationComposer
@@ -3290,6 +3420,14 @@ class $$ProfilesTableAnnotationComposer
 
   GeneratedColumn<bool> get onboarded =>
       $composableBuilder(column: $table.onboarded, builder: (column) => column);
+
+  GeneratedColumn<String> get language =>
+      $composableBuilder(column: $table.language, builder: (column) => column);
+
+  GeneratedColumn<bool> get keepScreenOn => $composableBuilder(
+    column: $table.keepScreenOn,
+    builder: (column) => column,
+  );
 }
 
 class $$ProfilesTableTableManager
@@ -3329,6 +3467,8 @@ class $$ProfilesTableTableManager
                 Value<bool> audioCues = const Value.absent(),
                 Value<bool> autoPause = const Value.absent(),
                 Value<bool> onboarded = const Value.absent(),
+                Value<String?> language = const Value.absent(),
+                Value<bool> keepScreenOn = const Value.absent(),
               }) => ProfilesCompanion(
                 id: id,
                 weightKg: weightKg,
@@ -3339,6 +3479,8 @@ class $$ProfilesTableTableManager
                 audioCues: audioCues,
                 autoPause: autoPause,
                 onboarded: onboarded,
+                language: language,
+                keepScreenOn: keepScreenOn,
               ),
           createCompanionCallback:
               ({
@@ -3351,6 +3493,8 @@ class $$ProfilesTableTableManager
                 Value<bool> audioCues = const Value.absent(),
                 Value<bool> autoPause = const Value.absent(),
                 Value<bool> onboarded = const Value.absent(),
+                Value<String?> language = const Value.absent(),
+                Value<bool> keepScreenOn = const Value.absent(),
               }) => ProfilesCompanion.insert(
                 id: id,
                 weightKg: weightKg,
@@ -3361,6 +3505,8 @@ class $$ProfilesTableTableManager
                 audioCues: audioCues,
                 autoPause: autoPause,
                 onboarded: onboarded,
+                language: language,
+                keepScreenOn: keepScreenOn,
               ),
           withReferenceMapper:
               (p0) =>

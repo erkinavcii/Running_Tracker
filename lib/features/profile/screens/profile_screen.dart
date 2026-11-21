@@ -8,6 +8,7 @@ import '../../../core/widgets/common.dart';
 import '../../../data/database.dart';
 import '../../../data/run_repository.dart';
 import '../profile_validation.dart';
+import '../../../core/l10n.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -80,7 +81,7 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
     setState(() => _dirty = false);
     FocusScope.of(context).unfocus();
     ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('Profile saved')));
+        .showSnackBar(SnackBar(content: Text(context.l10n.profileSaved)));
   }
 
   @override
@@ -94,22 +95,22 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 28, 20, 32),
         children: [
-          const PageTitle(
-            'Profile',
-            subtitle: 'Used to estimate calories. Stays on this phone.',
+          PageTitle(
+            context.l10n.profile,
+            subtitle: context.l10n.profileSubtitle,
           ),
           const SizedBox(height: 24),
-          const SectionLabel('Body'),
+          SectionLabel(context.l10n.body),
           const SizedBox(height: 10),
           SurfaceCard(
             child: Column(
               children: [
                 _NumberField(
                   controller: _weight,
-                  label: 'Weight',
+                  label: context.l10n.weight,
                   suffix: 'kg',
                   decimal: true,
-                  validator: (s) => validateWeight(s),
+                  validator: (s) => validateWeight(s, l: context.l10n),
                 ),
                 const SizedBox(height: 14),
                 Row(
@@ -117,17 +118,17 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
                     Expanded(
                       child: _NumberField(
                         controller: _height,
-                        label: 'Height',
+                        label: context.l10n.height,
                         suffix: 'cm',
-                        validator: validateHeight,
+                        validator: (s) => validateHeight(s, l: context.l10n),
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: _NumberField(
                         controller: _birthYear,
-                        label: 'Birth year',
-                        validator: validateBirthYear,
+                        label: context.l10n.birthYear,
+                        validator: (s) => validateBirthYear(s, l: context.l10n),
                       ),
                     ),
                   ],
@@ -138,10 +139,10 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
                   child: SegmentedButton<Sex?>(
                     showSelectedIcon: false,
                     emptySelectionAllowed: true,
-                    segments: const [
-                      ButtonSegment(value: Sex.female, label: Text('Female')),
-                      ButtonSegment(value: Sex.male, label: Text('Male')),
-                      ButtonSegment(value: Sex.other, label: Text('Other')),
+                    segments: [
+                      ButtonSegment(value: Sex.female, label: Text(context.l10n.female)),
+                      ButtonSegment(value: Sex.male, label: Text(context.l10n.male)),
+                      ButtonSegment(value: Sex.other, label: Text(context.l10n.other)),
                     ],
                     selected: {if (p.sex != null) p.sex},
                     onSelectionChanged: (s) => _repo.updateProfile(
@@ -152,13 +153,13 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
                 const SizedBox(height: 16),
                 FilledButton(
                   onPressed: _dirty ? _saveBody : null,
-                  child: const Text('SAVE'),
+                  child: Text(context.l10n.saveCaps),
                 ),
               ],
             ),
           ),
           const SizedBox(height: 24),
-          const SectionLabel('Units'),
+          SectionLabel(context.l10n.units),
           const SizedBox(height: 10),
           SurfaceCard(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -166,7 +167,7 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
               children: [
                 Expanded(
                   child: Text(
-                    'Distance',
+                    context.l10n.distance,
                     style: TextStyle(fontSize: 15, color: c.ink),
                   ),
                 ),
@@ -184,7 +185,33 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
             ),
           ),
           const SizedBox(height: 24),
-          const SectionLabel('Endurance runs'),
+          SectionLabel(context.l10n.language),
+          const SizedBox(height: 10),
+          SurfaceCard(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            child: SizedBox(
+              width: double.infinity,
+              child: SegmentedButton<String>(
+                showSelectedIcon: false,
+                segments: [
+                  ButtonSegment(
+                    value: 'system',
+                    label: Text(context.l10n.languageSystem),
+                  ),
+                  const ButtonSegment(value: 'en', label: Text('English')),
+                  const ButtonSegment(value: 'tr', label: Text('Türkçe')),
+                ],
+                selected: {p.language ?? 'system'},
+                onSelectionChanged: (s) => _repo.updateProfile(
+                  ProfilesCompanion(
+                    language: Value(s.first == 'system' ? null : s.first),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+          SectionLabel(context.l10n.enduranceRuns),
           const SizedBox(height: 10),
           SurfaceCard(
             padding: const EdgeInsets.symmetric(vertical: 4),
@@ -194,19 +221,32 @@ class _ProfileFormState extends ConsumerState<_ProfileForm> {
                   value: p.audioCues,
                   onChanged: (v) => _repo
                       .updateProfile(ProfilesCompanion(audioCues: Value(v))),
-                  title: const Text('Audio cues'),
-                  subtitle: const Text('Time and pace every kilometre'),
+                  title: Text(context.l10n.audioCues),
+                  subtitle: Text(context.l10n.audioCuesSubtitle),
                 ),
                 Divider(height: 1, color: c.line, indent: 16, endIndent: 16),
                 SwitchListTile(
                   value: p.autoPause,
                   onChanged: (v) => _repo
                       .updateProfile(ProfilesCompanion(autoPause: Value(v))),
-                  title: const Text('Auto-pause'),
-                  subtitle: const Text('Pause when you stop moving'),
+                  title: Text(context.l10n.autoPause),
+                  subtitle: Text(context.l10n.autoPauseSubtitle),
+                ),
+                Divider(height: 1, color: c.line, indent: 16, endIndent: 16),
+                SwitchListTile(
+                  value: p.keepScreenOn,
+                  onChanged: (v) => _repo
+                      .updateProfile(ProfilesCompanion(keepScreenOn: Value(v))),
+                  title: Text(context.l10n.keepScreenOn),
+                  subtitle: Text(context.l10n.keepScreenOnSubtitle),
                 ),
               ],
             ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            context.l10n.appliesNextRun,
+            style: TextStyle(fontSize: 12.5, color: c.muted),
           ),
         ],
       ),

@@ -1,6 +1,8 @@
 /// Monday-based week grouping for the history screen.
 library;
 
+import 'package:intl/intl.dart';
+
 /// Local Monday 00:00 of the week containing [t].
 DateTime weekStart(DateTime t) {
   final l = t.toLocal();
@@ -67,25 +69,25 @@ List<(DateTime, double)> weeklyTotals<T>(
   return [for (final s in starts) (s, totals[s]!)];
 }
 
-const _months = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-];
+String _dayMonth(DateTime d) => DateFormat('d MMM').format(d);
 
-/// "This week", "Last week" or "17 – 23 Nov" / "28 Oct – 3 Nov".
-String weekLabel(DateTime start, {required DateTime now}) {
+/// "This week", "Last week" or "17 – 23 Nov" / "28 Oct – 3 Nov"; month
+/// names follow the app language, the two labels are passed in localised.
+String weekLabel(
+  DateTime start, {
+  required DateTime now,
+  String thisWeek = 'This week',
+  String lastWeek = 'Last week',
+}) {
   final current = weekStart(now);
-  if (start == current) return 'This week';
+  if (start == current) return thisWeek;
   if (start == DateTime(current.year, current.month, current.day - 7)) {
-    return 'Last week';
+    return lastWeek;
   }
   final end = DateTime(start.year, start.month, start.day + 6);
-  if (start.month == end.month) {
-    return '${start.day} – ${end.day} ${_months[end.month - 1]}';
-  }
-  return '${start.day} ${_months[start.month - 1]} – '
-      '${end.day} ${_months[end.month - 1]}';
+  if (start.month == end.month) return '${start.day} – ${_dayMonth(end)}';
+  return '${_dayMonth(start)} – ${_dayMonth(end)}';
 }
 
 /// "17 Nov" for chart axis labels.
-String shortDay(DateTime d) => '${d.day} ${_months[d.month - 1]}';
+String shortDay(DateTime d) => _dayMonth(d);

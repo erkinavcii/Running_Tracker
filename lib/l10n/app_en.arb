@@ -1,0 +1,249 @@
+{
+  "@@locale": "en",
+  "appTitle": "Sprint Tracker",
+  "cancel": "Cancel",
+  "save": "Save",
+  "delete": "Delete",
+  "sprint": "Sprint",
+  "run": "Run",
+  "distance": "Distance",
+  "time": "Time",
+  "pace": "Pace",
+  "avgPace": "Avg pace",
+  "speed": "Speed",
+  "avgSpeed": "Avg speed",
+  "averageSpeed": "Average speed",
+  "topSpeed": "Top speed",
+  "calories": "Calories",
+  "elevation": "Elevation",
+  "movingTime": "Moving time",
+  "elapsed": "Elapsed",
+  "kcalApprox": "≈ {kcal} kcal",
+  "@kcalApprox": {
+    "placeholders": {
+      "kcal": {
+        "type": "int"
+      }
+    }
+  },
+  "gpsLost": "GPS lost",
+  "gpsSearching": "Searching",
+  "gpsNoFix": "No fix",
+  "openSettings": "Open settings",
+  "tryAgain": "Try again",
+  "dbError": "Could not open the database.\n{error}",
+  "@dbError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "unfinishedTitle": "Unfinished run found",
+  "unfinishedBody": "Tracking stopped unexpectedly. Continue it, save it as it is, or discard it?",
+  "discard": "Discard",
+  "continueRun": "Continue",
+  "tabRun": "Run",
+  "tabHistory": "History",
+  "tabRecords": "Records",
+  "tabProfile": "Profile",
+  "chooseMode": "Choose a mode",
+  "homeSubtitle": "Raw GNSS Doppler speed, filtered with the accelerometer.",
+  "sprintSubtitle": "100 m dash · auto start & finish",
+  "endurance": "Endurance",
+  "enduranceSubtitle": "Pocket-friendly · controls in the notification",
+  "tipSky": "Stand outside with a clear view of the sky.",
+  "tipHold": "Hold the phone firmly or use an armband.",
+  "runPaused": "Run paused",
+  "runInProgress": "Run in progress",
+  "runDeleted": "Run deleted",
+  "sprintDeleted": "Sprint deleted",
+  "undo": "UNDO",
+  "noRunsTitle": "No runs yet",
+  "noRunsBody": "Finished sprints are saved here automatically.",
+  "last8Weeks": "Last 8 weeks",
+  "swipeToDelete": "Swipe left to delete.",
+  "runsCount": "{count, plural, =1{1 run} other{{count} runs}}",
+  "@runsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "thisWeek": "This week",
+  "lastWeek": "Last week",
+  "topSpeedShort": "top {speed}",
+  "@topSpeedShort": {
+    "placeholders": {
+      "speed": {
+        "type": "String"
+      }
+    }
+  },
+  "prBadge": "PR",
+  "noRecordsTitle": "No records yet",
+  "noRecordsBody": "Finish a sprint with GPS to set your first 100 m time and top speed.",
+  "notSetYet": "Not set yet",
+  "improvedTimes": "improved {count}×",
+  "@improvedTimes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "effortSprint100": "100 m sprint",
+  "effortHalf": "Half marathon",
+  "effortLongest": "Longest run",
+  "enterWeight": "Enter your weight",
+  "enterNumber": "Enter a number",
+  "weightRange": "Between 30 and 250 kg",
+  "wholeCm": "Whole centimetres",
+  "heightRange": "Between 100 and 250 cm",
+  "enterYear": "Enter a year",
+  "yearRange": "Between 1920 and {max}",
+  "@yearRange": {
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "welcome": "Welcome to\nSprint Tracker",
+  "onboardingBody": "What is your weight? It is only used to estimate calories and never leaves this phone. You can change it later in Profile.",
+  "weight": "Weight",
+  "height": "Height",
+  "birthYear": "Birth year",
+  "continueCaps": "CONTINUE",
+  "skipForNow": "Skip for now",
+  "profileSaved": "Profile saved",
+  "profile": "Profile",
+  "profileSubtitle": "Used to estimate calories. Stays on this phone.",
+  "body": "Body",
+  "female": "Female",
+  "male": "Male",
+  "other": "Other",
+  "saveCaps": "SAVE",
+  "units": "Units",
+  "enduranceRuns": "Endurance runs",
+  "audioCues": "Audio cues",
+  "audioCuesSubtitle": "Time and pace every kilometre",
+  "autoPause": "Auto-pause",
+  "autoPauseSubtitle": "Pause when you stop moving",
+  "keepScreenOn": "Keep screen on",
+  "keepScreenOnSubtitle": "While the live run screen is open",
+  "language": "Language",
+  "languageSystem": "System",
+  "appliesNextRun": "Run settings apply from the next run.",
+  "runWasDeleted": "This run was deleted.",
+  "exportGpx": "Export GPX",
+  "noGpsToExport": "This run has no GPS points to export.",
+  "editNote": "Edit note",
+  "note": "Note",
+  "noteHint": "Track, wind, shoes, how it felt…",
+  "addNote": "Add a note",
+  "targetTime": "{meters} m time",
+  "@targetTime": {
+    "placeholders": {
+      "meters": {
+        "type": "int"
+      }
+    }
+  },
+  "noGpsNote": "Recorded without GPS. Speed and distance are not measured, so this run does not count for records.",
+  "weakGpsNote": "Recorded with a weak GPS signal. Values may be off.",
+  "speedEvery10m": "Speed every 10 m",
+  "splits": "Splits",
+  "route": "Route",
+  "slow": "slow",
+  "fast": "fast",
+  "locationNeeded": "Location permission is needed to track the run.",
+  "noNotificationTitle": "No notification",
+  "noNotificationBody": "Without notification permission you can't see or control the run from the lock screen. Start anyway?",
+  "startAnyway": "START ANYWAY",
+  "batteryTitle": "Keep tracking with the screen off",
+  "batteryBody": "Some phones (Samsung especially) stop apps in the background to save battery. Allow Sprint Tracker to run unrestricted so a run in your pocket is never cut short.",
+  "allow": "ALLOW",
+  "notNow": "Not now",
+  "couldNotStart": "Could not start tracking. Try again.",
+  "runDiscardedNoGps": "Run discarded: no GPS fix was recorded.",
+  "readyTitle": "Ready when you are",
+  "readyBody": "Put the phone in your pocket. Distance, time and pace stay in the notification, and you can pause from the lock screen.",
+  "startRun": "START RUN",
+  "autoPausedCaps": "AUTO-PAUSED",
+  "pausedCaps": "PAUSED",
+  "resumesWhenRunning": "Resumes when you start running",
+  "liveFooter": "Elapsed {elapsed} · Climb {climb} m · {fixes} GPS fixes · swipe left for the map",
+  "@liveFooter": {
+    "placeholders": {
+      "elapsed": {
+        "type": "String"
+      },
+      "climb": {
+        "type": "int"
+      },
+      "fixes": {
+        "type": "int"
+      }
+    }
+  },
+  "resumeCaps": "RESUME",
+  "holdToFinish": "HOLD TO FINISH",
+  "pauseCaps": "PAUSE",
+  "waitingForPoints": "Waiting for the first GPS points…",
+  "followMe": "Follow me",
+  "sprintTitle": "100 m Sprint",
+  "issuePermissionTitle": "Location permission needed",
+  "issuePermissionBody": "Allow precise location so speed and distance can be measured.",
+  "issueDisabledTitle": "Location is turned off",
+  "issueDisabledBody": "Turn on location (GPS) in the system settings to start.",
+  "issueNoFixTitle": "No GPS signal",
+  "issueNoFixBody": "No satellite fix after {seconds} s. Move outside, away from buildings. The timer will run, but speed and distance will stay at zero.",
+  "@issueNoFixBody": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "issueWeakTitle": "Weak GPS signal",
+  "issueWeakBody": "Accuracy is only ±{meters} m. Results may be off by several metres.",
+  "@issueWeakBody": {
+    "placeholders": {
+      "meters": {
+        "type": "String"
+      }
+    }
+  },
+  "issueLostTitle": "GPS signal lost",
+  "issueLostBody": "Speed fades out until the signal returns.",
+  "newPr": "New personal record!",
+  "stateCalibrating": "Calibrating GPS",
+  "stateCalibratingBody": "Stand still outside until the fix settles.",
+  "stateReady": "Ready",
+  "stateReadyBody": "Take your mark: 3-second countdown.",
+  "stateSet": "Set…",
+  "stateSetBody": "Hold still.",
+  "stateGo": "Go!",
+  "stateGoBody": "Stops automatically at the finish line.",
+  "stateFinished": "Finished",
+  "stateSaved": "Saved to your history.",
+  "stateInterpolated": "Finish time is interpolated between GPS fixes.",
+  "startingIn": "Starting in",
+  "progress": "Progress",
+  "metersToGo": "{meters} m to go",
+  "@metersToGo": {
+    "placeholders": {
+      "meters": {
+        "type": "int"
+      }
+    }
+  },
+  "telemetry": "Telemetry",
+  "tryAgainCaps": "TRY AGAIN",
+  "waitingForGps": "WAITING FOR GPS",
+  "startSprint": "START SPRINT",
+  "cancelCaps": "CANCEL",
+  "runAgain": "RUN AGAIN"
+}
