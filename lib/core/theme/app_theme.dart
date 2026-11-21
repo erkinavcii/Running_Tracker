@@ -127,6 +127,30 @@ ThemeData buildTheme(Brightness brightness) {
       ),
     ),
     dividerColor: c.line,
+    navigationBarTheme: NavigationBarThemeData(
+      backgroundColor: c.surface,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      height: 68,
+      indicatorColor: c.accent.withValues(alpha: 0.14),
+      iconTheme: WidgetStateProperty.resolveWith(
+        (s) => IconThemeData(
+          color: s.contains(WidgetState.selected) ? c.accent : c.muted,
+        ),
+      ),
+      labelTextStyle: WidgetStateProperty.resolveWith(
+        (s) => TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: s.contains(WidgetState.selected) ? c.ink : c.muted,
+        ),
+      ),
+    ),
+    inputDecorationTheme: InputDecorationTheme(
+      focusedBorder: OutlineInputBorder(
+        borderSide: BorderSide(color: c.accent, width: 1.6),
+      ),
+    ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
         backgroundColor: c.accent,

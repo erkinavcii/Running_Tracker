@@ -8,6 +8,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 
+import '../../data/track_sample.dart';
 import 'location_service.dart';
 
 final sensorFusionServiceProvider = Provider<SensorFusionService>((ref) {
@@ -114,6 +115,12 @@ class SensorFusionService {
   String _lastDebugLog = '';
 
   IOSink? _logSink;
+
+  // Accepted fixes of the current run, for saving the route.
+  final List<TrackSample> _track = [];
+
+  /// Accepted GNSS fixes of the last run (kept after stop until next start).
+  List<TrackSample> get track => List.unmodifiable(_track);
 
   SensorFusionService(this._locationService);
 
@@ -242,6 +249,15 @@ class SensorFusionService {
     _lastGpsSpeedSigma = sigma;
     _lastGpsAt = _clock.elapsed;
     _gpsFixCount++;
+    _track.add(TrackSample(
+      tMs: _clock.elapsedMilliseconds,
+      lat: position.latitude,
+      lon: position.longitude,
+      speedMps: math.max(position.speed, 0.0),
+      speedAccMps: position.speedAccuracy > 0 ? position.speedAccuracy : null,
+      accM: position.accuracy,
+      altM: position.altitude != 0 ? position.altitude : null,
+    ));
 
     _log('GPS', p: position, fixDtMs: fixDtMs);
     _emitUpdate();
@@ -311,6 +327,7 @@ class SensorFusionService {
 
   void _resetState() {
     _kf.reset();
+    _track.clear();
     _lastPredict = Duration.zero;
     _lastGpsAt = null;
     _lastFixTimestamp = null;

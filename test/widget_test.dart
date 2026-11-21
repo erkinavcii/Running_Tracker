@@ -1,22 +1,37 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
-import 'package:flutter_test/flutter_test.dart';
+import 'package:drift/native.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
 
+import 'package:sprint_tracker/data/database.dart';
+import 'package:sprint_tracker/data/run_repository.dart';
 import 'package:sprint_tracker/main.dart';
 
 void main() {
-  testWidgets('App smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const ProviderScope(child: SprintTrackerApp()));
+  testWidgets('first launch shows onboarding, skip opens the tabs',
+      (tester) async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
 
-    // Verify that the Sprint Mode button is present
+    await tester.pumpWidget(ProviderScope(
+      overrides: [appDatabaseProvider.overrideWithValue(db)],
+      child: const SprintTrackerApp(),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('Skip for now'), findsOneWidget);
+
+    await tester.tap(find.text('Skip for now'));
+    await tester.pumpAndSettle();
+
     expect(find.text('Sprint'), findsOneWidget);
     expect(find.text('Endurance'), findsOneWidget);
+
+    await tester.tap(find.text('History'));
+    await tester.pumpAndSettle();
+    expect(find.text('No runs yet'), findsOneWidget);
+
+    // Unmount so drift's stream queries are cancelled before teardown.
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 10));
   });
 }

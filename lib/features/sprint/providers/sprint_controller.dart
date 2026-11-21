@@ -2,6 +2,9 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/services/sensor_fusion_service.dart';
 import '../../../core/services/location_service.dart';
+import '../../../core/calories.dart';
+import '../../../data/database.dart' show GpsQuality;
+import '../../../data/run_repository.dart';
 
 enum SprintState { calibrating, ready, countdown, running, finished }
 
@@ -25,6 +28,7 @@ class SprintData {
   final double? gpsAccuracy; // Last fix horizontal accuracy (m), null = no fix
   final bool gpsLost;
   final GpsIssue gpsIssue;
+  final int? savedRunId; // Set once the finished sprint is in the history
 
   SprintData({
     required this.state,
@@ -37,6 +41,7 @@ class SprintData {
     this.gpsAccuracy,
     this.gpsLost = false,
     this.gpsIssue = GpsIssue.none,
+    this.savedRunId,
   });
 
   SprintData copyWith({
@@ -50,6 +55,7 @@ class SprintData {
     double? gpsAccuracy,
     bool? gpsLost,
     GpsIssue? gpsIssue,
+    int? savedRunId,
   }) {
     return SprintData(
       state: state ?? this.state,
@@ -62,6 +68,7 @@ class SprintData {
       gpsAccuracy: gpsAccuracy ?? this.gpsAccuracy,
       gpsLost: gpsLost ?? this.gpsLost,
       gpsIssue: gpsIssue ?? this.gpsIssue,
+      savedRunId: savedRunId ?? this.savedRunId,
     );
   }
 }
@@ -70,12 +77,17 @@ final sprintControllerProvider =
     StateNotifierProvider<SprintController, SprintData>((ref) {
   final fusionService = ref.watch(sensorFusionServiceProvider);
   final locationService = ref.watch(locationServiceProvider);
-  return SprintController(fusionService, locationService);
+  return SprintController(
+    fusionService,
+    locationService,
+    repository: ref.watch(runRepositoryProvider),
+  );
 });
 
 class SprintController extends StateNotifier<SprintData> {
   final SensorFusionService _fusionService;
   final LocationService _locationService;
+  final RunRepository? _repository;
 
   StreamSubscription? _calibrationSub;
   StreamSubscription? _fusionSub;
@@ -84,14 +96,20 @@ class SprintController extends StateNotifier<SprintData> {
   Duration _prevElapsed = Duration.zero;
   double _prevDistance = 0.0;
   int _calibrationGen = 0; // Ignores timeouts of an earlier calibration
+  DateTime? _runStartedAt;
+  GpsQuality _runGpsQuality = GpsQuality.good;
 
   // Configuration
   final double targetDistance = 100.0; // 100 meters sprint
   static const double calibratedAccuracyM = 10.0;
   static const Duration calibrationTimeout = Duration(seconds: 15);
 
-  SprintController(this._fusionService, this._locationService)
-      : super(SprintData(state: SprintState.calibrating));
+  SprintController(
+    this._fusionService,
+    this._locationService, {
+    RunRepository? repository,
+  })  : _repository = repository,
+        super(SprintData(state: SprintState.calibrating));
 
   Future<void> startCalibration() async {
     final gen = ++_calibrationGen;
@@ -192,6 +210,12 @@ class SprintController extends StateNotifier<SprintData> {
     );
     _prevElapsed = Duration.zero;
     _prevDistance = 0.0;
+    _runStartedAt = DateTime.now();
+    _runGpsQuality = switch (state.gpsIssue) {
+      GpsIssue.none => GpsQuality.good,
+      GpsIssue.weak => GpsQuality.weak,
+      _ => GpsQuality.none,
+    };
 
     // Start Sensor Fusion algorithm. Its monotonic clock is the race clock,
     // so the displayed time and the finish-line interpolation share one base.
@@ -234,6 +258,7 @@ class SprintController extends StateNotifier<SprintData> {
         debugLog: data.rawDebugLog.isNotEmpty ? data.rawDebugLog : null,
       );
       stopRunning();
+      _saveSprint();
       return;
     }
 
@@ -267,6 +292,42 @@ class SprintController extends StateNotifier<SprintData> {
           : state.distanceRun,
       currentSpeed: 0.0,
     );
+  }
+
+  /// Stores the finished sprint (only runs that reached the finish line).
+  Future<void> _saveSprint() async {
+    final repo = _repository;
+    final startedAt = _runStartedAt;
+    if (repo == null || startedAt == null) return;
+    final result = state;
+    try {
+      final profile = await repo.getProfile();
+      final secs = result.elapsed.inMilliseconds / 1000;
+      final weight = profile.weightKg;
+      final id = await repo.saveSprint(SprintResult(
+        startedAt: startedAt,
+        time: result.elapsed,
+        distanceM: targetDistance,
+        maxSpeedMps: result.maxSpeed,
+        gpsQuality: _runGpsQuality,
+        track: _fusionService.track,
+        kcal: weight == null || secs <= 0
+            ? null
+            : kcalForInterval(
+                speedMps: targetDistance / secs,
+                durationS: secs,
+                weightKg: weight,
+              ),
+      ));
+      if (mounted && state.state == SprintState.finished) {
+        state = state.copyWith(savedRunId: id);
+      }
+    } catch (e) {
+      // Saving must never break the result screen.
+      if (mounted) {
+        state = state.copyWith(debugLog: 'Could not save run: $e');
+      }
+    }
   }
 
   @override

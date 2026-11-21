@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/services/location_service.dart';
 import 'core/services/sensor_fusion_service.dart';
 import 'core/theme/app_theme.dart';
-import 'features/home/screens/home_screen.dart';
+import 'features/shell/app_shell.dart';
 import 'features/sprint/providers/demo_sprint_controller.dart';
 import 'features/sprint/providers/sprint_controller.dart';
 
@@ -35,7 +35,7 @@ class SprintTrackerApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: buildTheme(Brightness.light),
       darkTheme: buildTheme(Brightness.dark),
-      home: const HomeScreen(),
+      home: const RootGate(),
     );
   }
 }

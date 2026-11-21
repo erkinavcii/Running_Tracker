@@ -337,7 +337,9 @@ class _StatusHeader extends StatelessWidget {
       SprintState.finished => (
           Picto.finish,
           'Finished',
-          'Finish time is interpolated between GPS fixes.',
+          data.savedRunId != null
+              ? 'Saved to your history.'
+              : 'Finish time is interpolated between GPS fixes.',
         ),
     };
 
