@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sprint_tracker/data/database.dart';
 import 'package:sprint_tracker/data/run_repository.dart';
 import 'package:sprint_tracker/main.dart';
+import 'package:sprint_tracker/features/map/route_map.dart';
 
 Future<(AppDatabase, RunRepository)> _seed() async {
   final db = AppDatabase(NativeDatabase.memory());
@@ -44,6 +45,8 @@ Future<void> _unmount(WidgetTester tester) async {
 }
 
 void main() {
+  setUpAll(() => mapTilesEnabled = false); // no network in tests
+
   testWidgets('history groups runs, marks PRs and opens the detail',
       (tester) async {
     final (db, _) = (await tester.runAsync(_seed))!;

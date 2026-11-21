@@ -5,6 +5,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/common.dart';
 import '../../../core/widgets/pictogram.dart';
 import '../../../data/database.dart';
+import '../../map/route_preview.dart';
 
 class RunCard extends StatelessWidget {
   final Run run;
@@ -49,11 +50,13 @@ class RunCard extends StatelessWidget {
               border: Border.all(color: c.line),
             ),
             alignment: Alignment.center,
-            child: Pictogram(
-              sprint ? Picto.sprint : Picto.jog,
-              size: 34,
-              color: c.accent,
-            ),
+            child: sprint
+                ? Pictogram(Picto.sprint, size: 34, color: c.accent)
+                : RoutePreview(
+                    runId: run.id,
+                    color: c.accent,
+                    fallback: Pictogram(Picto.jog, size: 34, color: c.accent),
+                  ),
           ),
           const SizedBox(width: 14),
           Expanded(

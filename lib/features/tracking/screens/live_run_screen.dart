@@ -1,11 +1,18 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/format.dart';
+import '../../../core/route.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/common.dart';
 import '../../../core/widgets/pictogram.dart';
+import '../../../data/database.dart';
 import '../../../data/run_repository.dart';
+import '../../map/route_map.dart';
 import '../../history/screens/run_detail_screen.dart';
 import '../tracking_engine.dart';
 import '../tracking_service.dart';
@@ -241,134 +248,142 @@ class _LiveView extends ConsumerWidget {
     return Column(
       children: [
         Expanded(
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
+          child: PageView(
             children: [
-              if (paused)
-                Container(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  decoration: BoxDecoration(
-                    color: c.warn.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Column(
-                    children: [
-                      Text(
-                        snap.autoPaused ? 'AUTO-PAUSED' : 'PAUSED',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 2,
-                          color: c.warn,
-                        ),
+              ListView(
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
+                children: [
+                  if (paused)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      decoration: BoxDecoration(
+                        color: c.warn.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                      if (snap.autoPaused)
-                        Text(
-                          'Resumes when you start running',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 12, color: c.muted),
-                        ),
-                    ],
-                  ),
-                ),
-              SurfaceCard(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SectionLabel('Distance'),
-                    const SizedBox(height: 6),
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.baseline,
-                        textBaseline: TextBaseline.alphabetic,
+                      child: Column(
                         children: [
                           Text(
-                            dist.first,
+                            snap.autoPaused ? 'AUTO-PAUSED' : 'PAUSED',
+                            textAlign: TextAlign.center,
                             style: TextStyle(
-                              fontSize: 88,
-                              height: 1,
                               fontWeight: FontWeight.w800,
-                              letterSpacing: -2,
-                              color: c.ink,
-                              fontFeatures: tabularFigures,
+                              letterSpacing: 2,
+                              color: c.warn,
                             ),
                           ),
-                          const SizedBox(width: 6),
-                          Text(
-                            dist.last,
-                            style: TextStyle(
-                              fontSize: 26,
-                              fontWeight: FontWeight.w700,
-                              color: c.muted,
+                          if (snap.autoPaused)
+                            Text(
+                              'Resumes when you start running',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(fontSize: 12, color: c.muted),
                             ),
-                          ),
                         ],
                       ),
                     ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: _Tile(
-                      label: 'Time',
-                      value: formatClock(Duration(milliseconds: snap.movingMs)),
+                  SurfaceCard(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SectionLabel('Distance'),
+                        const SizedBox(height: 6),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.baseline,
+                            textBaseline: TextBaseline.alphabetic,
+                            children: [
+                              Text(
+                                dist.first,
+                                style: TextStyle(
+                                  fontSize: 88,
+                                  height: 1,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: -2,
+                                  color: c.ink,
+                                  fontFeatures: tabularFigures,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                dist.last,
+                                style: TextStyle(
+                                  fontSize: 26,
+                                  fontWeight: FontWeight.w700,
+                                  color: c.muted,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _Tile(
-                      label: 'Pace',
-                      value:
-                          formatPace(
-                            snap.currentSpeedMps,
-                            miles: miles,
-                          ).split(' ').first,
-                      accent: !paused,
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _Tile(
+                          label: 'Time',
+                          value: formatClock(
+                            Duration(milliseconds: snap.movingMs),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _Tile(
+                          label: 'Pace',
+                          value:
+                              formatPace(
+                                snap.currentSpeedMps,
+                                miles: miles,
+                              ).split(' ').first,
+                          accent: !paused,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _Tile(
+                          label: 'Avg pace',
+                          value:
+                              formatPace(
+                                snap.avgSpeedMps,
+                                miles: miles,
+                              ).split(' ').first,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _Tile(
+                          label: 'Calories',
+                          value:
+                              snap.kcal == null ? '–' : '${snap.kcal!.round()}',
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    'Elapsed ${formatClock(Duration(milliseconds: snap.elapsedMs))}'
+                    ' · Climb ${snap.elevGainM.round()} m'
+                    ' · ${snap.fixCount} GPS fixes · swipe left for the map',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      color: c.muted,
+                      fontFeatures: tabularFigures,
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: _Tile(
-                      label: 'Avg pace',
-                      value:
-                          formatPace(
-                            snap.avgSpeedMps,
-                            miles: miles,
-                          ).split(' ').first,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _Tile(
-                      label: 'Calories',
-                      value: snap.kcal == null ? '–' : '${snap.kcal!.round()}',
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              Text(
-                'Elapsed ${formatClock(Duration(milliseconds: snap.elapsedMs))}'
-                ' · Climb ${snap.elevGainM.round()} m'
-                ' · ${snap.fixCount} GPS fixes',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 12.5,
-                  color: c.muted,
-                  fontFeatures: tabularFigures,
-                ),
-              ),
+              _LiveMap(runId: snap.runId, miles: miles),
             ],
           ),
         ),
@@ -484,6 +499,134 @@ class _GpsChip extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Live route on the second page. Loads the stored track every 5 s, and
+/// only while this page is shown, so no tiles are fetched otherwise.
+class _LiveMap extends ConsumerStatefulWidget {
+  final int runId;
+  final bool miles;
+
+  const _LiveMap({required this.runId, required this.miles});
+
+  @override
+  ConsumerState<_LiveMap> createState() => _LiveMapState();
+}
+
+class _LiveMapState extends ConsumerState<_LiveMap> {
+  final _map = MapController();
+  Timer? _timer;
+  List<TrackPoint> _track = const [];
+  bool _follow = true;
+  bool _ready = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+    _timer = Timer.periodic(const Duration(seconds: 5), (_) => _load());
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _map.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    final t = await ref.read(runRepositoryProvider).getTrack(widget.runId);
+    if (!mounted) return;
+    setState(() => _track = t);
+    if (_follow && _ready && t.isNotEmpty) {
+      _map.move(LatLng(t.last.lat, t.last.lon), _map.camera.zoom);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = AppColors.of(context);
+    if (_track.isEmpty) {
+      return Center(
+        child: Text(
+          'Waiting for the first GPS points…',
+          style: TextStyle(color: c.muted),
+        ),
+      );
+    }
+    final last = LatLng(_track.last.lat, _track.last.lon);
+    final lines = speedLines(trackLike(_track));
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Stack(
+          children: [
+            FlutterMap(
+              mapController: _map,
+              options: MapOptions(
+                initialCenter: last,
+                initialZoom: 16,
+                backgroundColor: c.surface,
+                onMapReady: () => _ready = true,
+                onPositionChanged: (_, hasGesture) {
+                  if (hasGesture && _follow) setState(() => _follow = false);
+                },
+                interactionOptions: const InteractionOptions(
+                  flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+                ),
+              ),
+              children: [
+                if (mapTilesEnabled) osmTiles(),
+                PolylineLayer(
+                  polylines: [
+                    for (final l in lines)
+                      Polyline(
+                        points: [
+                          for (final p in l.points) LatLng(p.lat, p.lon),
+                        ],
+                        strokeWidth: 5,
+                        color: bandColor(context, l.band),
+                      ),
+                  ],
+                ),
+                MarkerLayer(
+                  markers: [
+                    Marker(
+                      point: last,
+                      width: 20,
+                      height: 20,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: c.accent,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 3),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (mapTilesEnabled) osmAttribution(),
+              ],
+            ),
+            if (!_follow)
+              Positioned(
+                right: 12,
+                top: 12,
+                child: FloatingActionButton.small(
+                  tooltip: 'Follow me',
+                  onPressed: () {
+                    setState(() => _follow = true);
+                    _map.move(last, _map.camera.zoom);
+                  },
+                  child: const Icon(Icons.my_location_rounded),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

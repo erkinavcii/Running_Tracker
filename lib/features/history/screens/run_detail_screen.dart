@@ -3,12 +3,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/format.dart';
+import '../../../core/route.dart';
+import '../../../core/track_math.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/common.dart';
 import '../../../data/database.dart';
 import '../../../data/effort_labels.dart';
 import '../../../data/records.dart';
 import '../../../data/run_repository.dart';
+import '../../map/route_map.dart';
 import '../widgets/run_card.dart';
 import 'history_screen.dart';
 
@@ -61,7 +64,10 @@ class RunDetailScreen extends ConsumerWidget {
             children: [
               Text(
                 formatRunDate(run.startedAt),
-                style: TextStyle(fontSize: 14, color: AppColors.of(context).muted),
+                style: TextStyle(
+                  fontSize: 14,
+                  color: AppColors.of(context).muted,
+                ),
               ),
               const SizedBox(height: 14),
               _Hero(run: run, miles: miles),
@@ -71,7 +77,8 @@ class RunDetailScreen extends ConsumerWidget {
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    for (final k in prs) PrBadge(text: effortLabel(k).toUpperCase()),
+                    for (final k in prs)
+                      PrBadge(text: effortLabel(k).toUpperCase()),
                   ],
                 ),
               ],
@@ -82,6 +89,7 @@ class RunDetailScreen extends ConsumerWidget {
               const SizedBox(height: 16),
               _StatsGrid(run: run, miles: miles),
               const SizedBox(height: 24),
+              _RouteSection(runId: run.id, miles: miles, sprint: sprint),
               if (sprint)
                 _SprintSplits(runId: run.id, miles: miles)
               else
@@ -99,30 +107,31 @@ class RunDetailScreen extends ConsumerWidget {
     final controller = TextEditingController(text: run.note ?? '');
     final result = await showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Note'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          maxLines: 4,
-          minLines: 2,
-          decoration: const InputDecoration(
-            hintText: 'Track, wind, shoes, how it felt…',
-            border: OutlineInputBorder(),
+      builder:
+          (ctx) => AlertDialog(
+            title: const Text('Note'),
+            content: TextField(
+              controller: controller,
+              autofocus: true,
+              maxLines: 4,
+              minLines: 2,
+              decoration: const InputDecoration(
+                hintText: 'Track, wind, shoes, how it felt…',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                style: FilledButton.styleFrom(minimumSize: const Size(88, 44)),
+                onPressed: () => Navigator.pop(ctx, controller.text),
+                child: const Text('Save'),
+              ),
+            ],
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(minimumSize: const Size(88, 44)),
-            onPressed: () => Navigator.pop(ctx, controller.text),
-            child: const Text('Save'),
-          ),
-        ],
-      ),
     );
     controller.dispose();
     if (result != null) {
@@ -141,19 +150,25 @@ class _Hero extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = AppColors.of(context);
     final sprint = run.type == RunType.sprint;
-    final value = sprint
-        ? formatSprintTime(Duration(milliseconds: run.sprintTimeMs ?? run.elapsedMs))
-        : formatDistance(run.distanceM, miles: miles).split(' ').first;
-    final unit = sprint ? 's' : (miles ? 'mi' : (run.distanceM < 1000 ? 'm' : 'km'));
+    final value =
+        sprint
+            ? formatSprintTime(
+              Duration(milliseconds: run.sprintTimeMs ?? run.elapsedMs),
+            )
+            : formatDistance(run.distanceM, miles: miles).split(' ').first;
+    final unit =
+        sprint ? 's' : (miles ? 'mi' : (run.distanceM < 1000 ? 'm' : 'km'));
 
     return SurfaceCard(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SectionLabel(sprint
-              ? '${run.targetDistanceM?.round() ?? 100} m time'
-              : 'Distance'),
+          SectionLabel(
+            sprint
+                ? '${run.targetDistanceM?.round() ?? 100} m time'
+                : 'Distance',
+          ),
           const SizedBox(height: 6),
           FittedBox(
             fit: BoxFit.scaleDown,
@@ -202,7 +217,8 @@ class _StatsGrid extends StatelessWidget {
     final sprint = run.type == RunType.sprint;
     final stats = <(String, String)>[
       if (sprint) ('Distance', formatDistance(run.distanceM, miles: miles)),
-      if (!sprint) ('Moving time', formatClock(Duration(milliseconds: run.movingMs))),
+      if (!sprint)
+        ('Moving time', formatClock(Duration(milliseconds: run.movingMs))),
       if (!sprint && run.elapsedMs != run.movingMs)
         ('Elapsed', formatClock(Duration(milliseconds: run.elapsedMs))),
       if (sprint) ('Avg speed', formatSpeed(run.avgSpeedMps, miles: miles)),
@@ -212,17 +228,19 @@ class _StatsGrid extends StatelessWidget {
       if (run.elevGainM != null) ('Elevation', '${run.elevGainM!.round()} m'),
     ];
 
-    return LayoutBuilder(builder: (context, box) {
-      final w = (box.maxWidth - 10) / 2;
-      return Wrap(
-        spacing: 10,
-        runSpacing: 10,
-        children: [
-          for (final s in stats)
-            SizedBox(width: w, child: _Stat(label: s.$1, value: s.$2)),
-        ],
-      );
-    });
+    return LayoutBuilder(
+      builder: (context, box) {
+        final w = (box.maxWidth - 10) / 2;
+        return Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: [
+            for (final s in stats)
+              SizedBox(width: w, child: _Stat(label: s.$1, value: s.$2)),
+          ],
+        );
+      },
+    );
   }
 }
 
@@ -272,8 +290,11 @@ class _GpsNote extends StatelessWidget {
     final none = quality == GpsQuality.none;
     return Row(
       children: [
-        Icon(none ? Icons.gps_off_rounded : Icons.gps_not_fixed_rounded,
-            size: 18, color: c.warn),
+        Icon(
+          none ? Icons.gps_off_rounded : Icons.gps_not_fixed_rounded,
+          size: 18,
+          color: c.warn,
+        ),
         const SizedBox(width: 8),
         Expanded(
           child: Text(
@@ -322,16 +343,20 @@ class _SprintSplits extends ConsumerWidget {
                 borderData: FlBorderData(show: false),
                 gridData: FlGridData(
                   drawVerticalLine: false,
-                  getDrawingHorizontalLine: (_) =>
-                      FlLine(color: c.line, strokeWidth: 1),
+                  getDrawingHorizontalLine:
+                      (_) => FlLine(color: c.line, strokeWidth: 1),
                 ),
                 barTouchData: BarTouchData(
                   touchTooltipData: BarTouchTooltipData(
                     getTooltipColor: (_) => c.ink,
-                    getTooltipItem: (group, _, rod, __) => BarTooltipItem(
-                      '${rod.toY.toStringAsFixed(1)} ${miles ? 'mph' : 'km/h'}',
-                      TextStyle(color: c.background, fontWeight: FontWeight.w700),
-                    ),
+                    getTooltipItem:
+                        (group, _, rod, __) => BarTooltipItem(
+                          '${rod.toY.toStringAsFixed(1)} ${miles ? 'mph' : 'km/h'}',
+                          TextStyle(
+                            color: c.background,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                   ),
                 ),
                 titlesData: FlTitlesData(
@@ -341,36 +366,41 @@ class _SprintSplits extends ConsumerWidget {
                     sideTitles: SideTitles(
                       showTitles: true,
                       reservedSize: 32,
-                      getTitlesWidget: (v, meta) => Text(
-                        v.toStringAsFixed(0),
-                        style: TextStyle(fontSize: 10.5, color: c.muted),
-                      ),
+                      getTitlesWidget:
+                          (v, meta) => Text(
+                            v.toStringAsFixed(0),
+                            style: TextStyle(fontSize: 10.5, color: c.muted),
+                          ),
                     ),
                   ),
                   bottomTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
                       reservedSize: 22,
-                      getTitlesWidget: (v, meta) => Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Text(
-                          '${(v.toInt() + 1) * 10}',
-                          style: TextStyle(fontSize: 10.5, color: c.muted),
-                        ),
-                      ),
+                      getTitlesWidget:
+                          (v, meta) => Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              '${(v.toInt() + 1) * 10}',
+                              style: TextStyle(fontSize: 10.5, color: c.muted),
+                            ),
+                          ),
                     ),
                   ),
                 ),
                 barGroups: [
                   for (var i = 0; i < speeds.length; i++)
-                    BarChartGroupData(x: i, barRods: [
-                      BarChartRodData(
-                        toY: speeds[i],
-                        width: 14,
-                        color: speeds[i] == maxV ? c.accent : c.muted,
-                        borderRadius: BorderRadius.circular(3),
-                      ),
-                    ]),
+                    BarChartGroupData(
+                      x: i,
+                      barRods: [
+                        BarChartRodData(
+                          toY: speeds[i],
+                          width: 14,
+                          color: speeds[i] == maxV ? c.accent : c.muted,
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                      ],
+                    ),
                 ],
               ),
             ),
@@ -386,7 +416,8 @@ class _SprintSplits extends ConsumerWidget {
                   cumulative += s.durationMs;
                   return _SplitRow(
                     label: '${(s.idx + 1) * 10} m',
-                    time: '${formatSprintTime(Duration(milliseconds: cumulative))} s',
+                    time:
+                        '${formatSprintTime(Duration(milliseconds: cumulative))} s',
                     detail: '+${(s.durationMs / 1000).toStringAsFixed(2)} s',
                   );
                 }(),
@@ -432,6 +463,218 @@ class _KmSplits extends ConsumerWidget {
   }
 }
 
+/// Map plus speed-over-distance chart; touching the chart marks the spot
+/// on the map.
+class _RouteSection extends ConsumerStatefulWidget {
+  final int runId;
+  final bool miles;
+  final bool sprint;
+
+  const _RouteSection({
+    required this.runId,
+    required this.miles,
+    required this.sprint,
+  });
+
+  @override
+  ConsumerState<_RouteSection> createState() => _RouteSectionState();
+}
+
+class _RouteSectionState extends ConsumerState<_RouteSection> {
+  int? _highlight;
+  List<TrackPoint>? _track;
+  List<double> _dist = const [];
+  List<double> _smooth = const [];
+
+  void _prepare(List<TrackPoint> track) {
+    if (identical(track, _track)) return;
+    _track = track;
+    _dist = cumulativeDistance(trackLike(track));
+    _smooth = movingAverage([for (final p in track) p.speedMps], 9);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final track = ref.watch(trackProvider(widget.runId)).valueOrNull;
+    if (track == null || track.length < 2) return const SizedBox.shrink();
+    _prepare(track);
+    final c = AppColors.of(context);
+    final miles = widget.miles;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionLabel('Route'),
+        const SizedBox(height: 12),
+        Stack(
+          children: [
+            RouteMap(
+              track: track,
+              distM: _dist,
+              miles: miles,
+              highlight: _highlight,
+              interactive: false,
+            ),
+            Positioned.fill(
+              child: Material(
+                type: MaterialType.transparency,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap:
+                      () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder:
+                              (_) => RouteMapPage(
+                                track: track,
+                                distM: _dist,
+                                miles: miles,
+                                highlight: _highlight,
+                              ),
+                        ),
+                      ),
+                ),
+              ),
+            ),
+            Positioned(
+              right: 10,
+              top: 10,
+              child: IgnorePointer(
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: c.surface,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: c.line),
+                  ),
+                  child: Icon(
+                    Icons.open_in_full_rounded,
+                    size: 18,
+                    color: c.ink,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        SpeedLegend(speeds: [for (final p in track) p.speedMps], miles: miles),
+        if (!widget.sprint) ...[
+          const SizedBox(height: 20),
+          const SectionLabel('Speed'),
+          const SizedBox(height: 12),
+          SurfaceCard(
+            padding: const EdgeInsets.fromLTRB(8, 16, 16, 8),
+            child: SizedBox(height: 150, child: _chart(c, miles)),
+          ),
+        ],
+        const SizedBox(height: 24),
+      ],
+    );
+  }
+
+  Widget _chart(AppColors c, bool miles) {
+    final n = _dist.length;
+    final stride = (n / 300).ceil().clamp(1, n);
+    final idx = [for (var i = 0; i < n; i += stride) i];
+    if (idx.last != n - 1) idx.add(n - 1);
+    final unit = miles ? metersPerMile : 1000.0;
+    final factor = miles ? 3600 / metersPerMile : 3.6;
+    final spots = [
+      for (final i in idx) FlSpot(_dist[i] / unit, _smooth[i] * factor),
+    ];
+    final maxY = spots.fold(0.0, (m, s) => s.y > m ? s.y : m);
+
+    return LineChart(
+      LineChartData(
+        minY: 0,
+        maxY: (maxY * 1.15).ceilToDouble().clamp(1, 100),
+        borderData: FlBorderData(show: false),
+        gridData: FlGridData(
+          drawVerticalLine: false,
+          getDrawingHorizontalLine:
+              (_) => FlLine(color: c.line, strokeWidth: 1),
+        ),
+        lineTouchData: LineTouchData(
+          handleBuiltInTouches: true,
+          touchCallback: (event, resp) {
+            final spot = resp?.lineBarSpots?.firstOrNull;
+            if (spot == null) return;
+            final i = idx[spot.spotIndex];
+            if (i != _highlight) setState(() => _highlight = i);
+          },
+          touchTooltipData: LineTouchTooltipData(
+            getTooltipColor: (_) => c.ink,
+            getTooltipItems:
+                (spots) => [
+                  for (final s in spots)
+                    LineTooltipItem(
+                      '${s.x.toStringAsFixed(2)} ${miles ? 'mi' : 'km'} · '
+                      '${formatPace(s.y / factor, miles: miles)}',
+                      TextStyle(
+                        color: c.background,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                ],
+          ),
+        ),
+        titlesData: FlTitlesData(
+          topTitles: const AxisTitles(),
+          rightTitles: const AxisTitles(),
+          leftTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 30,
+              getTitlesWidget:
+                  (v, meta) => Text(
+                    v.toStringAsFixed(0),
+                    style: TextStyle(fontSize: 10.5, color: c.muted),
+                  ),
+            ),
+          ),
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 22,
+              // The axis end is an odd value (e.g. 0.61) that would overlap
+              // the last regular label, so it is skipped.
+              getTitlesWidget:
+                  (v, meta) =>
+                      v == meta.max &&
+                              v != meta.min &&
+                              (v / meta.appliedInterval -
+                                          (v / meta.appliedInterval).round())
+                                      .abs() >
+                                  1e-6
+                          ? const SizedBox.shrink()
+                          : Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              meta.formattedValue,
+                              style: TextStyle(fontSize: 10.5, color: c.muted),
+                            ),
+                          ),
+            ),
+          ),
+        ),
+        lineBarsData: [
+          LineChartBarData(
+            spots: spots,
+            isCurved: false,
+            color: c.accent,
+            barWidth: 2,
+            dotData: const FlDotData(show: false),
+            belowBarData: BarAreaData(
+              show: true,
+              color: c.accent.withValues(alpha: 0.10),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _SplitRow extends StatelessWidget {
   final String label;
   final String time;
@@ -458,10 +701,16 @@ class _SplitRow extends StatelessWidget {
         children: [
           SizedBox(
             width: 64,
-            child: Text(label, style: TextStyle(fontSize: 13.5, color: c.muted)),
+            child: Text(
+              label,
+              style: TextStyle(fontSize: 13.5, color: c.muted),
+            ),
           ),
           Expanded(child: Text(time, style: num)),
-          Text(detail, style: num.copyWith(color: c.muted, fontWeight: FontWeight.w500)),
+          Text(
+            detail,
+            style: num.copyWith(color: c.muted, fontWeight: FontWeight.w500),
+          ),
         ],
       ),
     );

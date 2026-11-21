@@ -141,7 +141,7 @@ best_efforts    runId, kind(100m|400m|1k|5k|10k|21k|top_speed|longest),
 - Duraklat/devam onayı, GPS kaybı uyarısı.
 - Müzik çalarken ses kısılması için `AudioFocus` "duck" modu kullanılır.
 
-## 7. Faz E: Harita
+## 7. Faz E: Harita ✔
 
 - **`flutter_map` + OpenStreetMap karoları (önerilen):** API anahtarı ve faturalandırma yok. OSM karo kullanım politikası gereği uygulamaya özel bir `userAgentPackageName` ayarlanır. Kullanıcı sayısı büyürse ücretsiz katmanı olan bir sağlayıcıya (MapTiler veya Stadia) geçilir.
 - Alternatif `google_maps_flutter`: daha tanıdık görünür ama API anahtarı ve faturalandırma hesabı gerektirir.
