@@ -7,11 +7,13 @@ import 'core/theme/app_theme.dart';
 import 'data/run_repository.dart';
 import 'features/demo/demo_data.dart';
 import 'features/shell/app_shell.dart';
+import 'features/tracking/tracking_service.dart';
 import 'features/sprint/providers/demo_sprint_controller.dart';
 import 'features/sprint/providers/sprint_controller.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  initTrackingService();
   // Demo builds use a seeded in-memory database, never the real one.
   final demoDb = demoMode.isEmpty ? null : await buildDemoDatabase();
 

@@ -1,6 +1,8 @@
 import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/best_efforts.dart';
+import '../core/track_math.dart';
 import 'database.dart';
 import 'records.dart';
 import 'track_sample.dart';
@@ -65,10 +67,227 @@ class SprintResult {
   });
 }
 
+/// One point accepted by the live tracker, ready to store.
+class StoredPoint {
+  final int tMs;
+  final double lat;
+  final double lon;
+  final double speedMps;
+  final double? speedAccMps;
+  final double accM;
+  final double? altM;
+  final int segment;
+
+  const StoredPoint({
+    required this.tMs,
+    required this.lat,
+    required this.lon,
+    required this.speedMps,
+    required this.accM,
+    required this.segment,
+    this.speedAccMps,
+    this.altM,
+  });
+}
+
+/// Running totals written while an endurance run is in progress.
+class RunProgress {
+  final RunStatus status;
+  final int elapsedMs;
+  final int movingMs;
+  final double distanceM;
+  final double maxSpeedMps;
+  final double? kcal;
+
+  const RunProgress({
+    required this.status,
+    required this.elapsedMs,
+    required this.movingMs,
+    required this.distanceM,
+    required this.maxSpeedMps,
+    this.kcal,
+  });
+}
+
+const enduranceEffortTargets = {
+  EffortKind.best400m: 400.0,
+  EffortKind.best1k: 1000.0,
+  EffortKind.best5k: 5000.0,
+  EffortKind.best10k: 10000.0,
+  EffortKind.bestHalf: 21097.5,
+};
+
 class RunRepository {
   final AppDatabase _db;
 
   RunRepository(this._db);
+
+  /// Re-runs the UI's stream queries after another isolate (the tracking
+  /// service) wrote to the database through its own connection.
+  void notifyExternalChanges() {
+    _db.notifyUpdates({
+      TableUpdate.onTable(_db.runs),
+      TableUpdate.onTable(_db.trackPoints),
+      TableUpdate.onTable(_db.splits),
+      TableUpdate.onTable(_db.bestEfforts),
+    });
+  }
+
+  // -------------------------------------------------------- endurance runs
+
+  Future<int> createEnduranceRun(DateTime startedAt) =>
+      _db.into(_db.runs).insert(RunsCompanion.insert(
+            type: RunType.endurance,
+            status: RunStatus.active,
+            startedAt: startedAt,
+            gpsQuality: GpsQuality.good,
+          ));
+
+  /// The unfinished endurance run, if the app or service died mid-run.
+  Future<Run?> getUnfinishedRun() => (_db.select(_db.runs)
+        ..where((r) =>
+            r.type.equalsValue(RunType.endurance) &
+            r.status.isInValues([RunStatus.active, RunStatus.paused]))
+        ..orderBy([(r) => OrderingTerm.desc(r.startedAt)])
+        ..limit(1))
+      .getSingleOrNull();
+
+  Future<TrackPoint?> lastPoint(int runId) => (_db.select(_db.trackPoints)
+        ..where((t) => t.runId.equals(runId))
+        ..orderBy([(t) => OrderingTerm.desc(t.seq)])
+        ..limit(1))
+      .getSingleOrNull();
+
+  /// Appends points (seq continues from [firstSeq]) and writes the running
+  /// totals in one transaction, so a crash never leaves them out of sync.
+  Future<void> saveProgress(
+    int runId,
+    int firstSeq,
+    List<StoredPoint> points,
+    RunProgress p,
+  ) {
+    return _db.transaction(() async {
+      if (points.isNotEmpty) {
+        await _db.batch((b) {
+          b.insertAll(_db.trackPoints, [
+            for (var i = 0; i < points.length; i++)
+              TrackPointsCompanion.insert(
+                runId: runId,
+                seq: firstSeq + i,
+                tMs: points[i].tMs,
+                lat: points[i].lat,
+                lon: points[i].lon,
+                speedMps: points[i].speedMps,
+                speedAccMps: Value(points[i].speedAccMps),
+                accM: points[i].accM,
+                altM: Value(points[i].altM),
+                segment: Value(points[i].segment),
+              ),
+          ]);
+        });
+      }
+      await (_db.update(_db.runs)..where((r) => r.id.equals(runId))).write(
+        RunsCompanion(
+          status: Value(p.status),
+          elapsedMs: Value(p.elapsedMs),
+          movingMs: Value(p.movingMs),
+          distanceM: Value(p.distanceM),
+          maxSpeedMps: Value(p.maxSpeedMps),
+          avgSpeedMps: Value(
+            p.movingMs > 0 ? p.distanceM / (p.movingMs / 1000) : 0,
+          ),
+          kcal: Value(p.kcal),
+        ),
+      );
+    });
+  }
+
+  /// Turns an active run into a finished one: recomputes distance from the
+  /// stored track (same rule as the live engine), then writes km splits and
+  /// best efforts on a moving-time axis (pauses excluded).
+  /// Runs with fewer than two fixes are deleted; returns null in that case.
+  Future<int?> finishEndurance(
+    int runId, {
+    required DateTime endedAt,
+    required int elapsedMs,
+    required int movingMs,
+    double? kcal,
+  }) {
+    return _db.transaction(() async {
+      final pts = await getTrack(runId);
+      if (pts.length < 2) {
+        await deleteRun(runId);
+        return null;
+      }
+
+      final like = [
+        for (final p in pts)
+          TrackPointLike(
+            tMs: p.tMs,
+            lat: p.lat,
+            lon: p.lon,
+            speedMps: p.speedMps,
+            segment: p.segment,
+          ),
+      ];
+      final dist = cumulativeDistance(like);
+      // Moving-time axis: time only advances inside a segment.
+      final moving = List<int>.filled(pts.length, 0);
+      for (var i = 1; i < pts.length; i++) {
+        final same = pts[i].segment == pts[i - 1].segment;
+        moving[i] = moving[i - 1] + (same ? pts[i].tMs - pts[i - 1].tMs : 0);
+      }
+
+      final total = dist.last;
+      final maxSpeed =
+          pts.fold(0.0, (m, p) => p.speedMps > m ? p.speedMps : m);
+      final moveMs = movingMs > 0 ? movingMs : moving.last;
+
+      await (_db.update(_db.runs)..where((r) => r.id.equals(runId))).write(
+        RunsCompanion(
+          status: const Value(RunStatus.finished),
+          endedAt: Value(endedAt),
+          elapsedMs: Value(elapsedMs),
+          movingMs: Value(moveMs),
+          distanceM: Value(total),
+          maxSpeedMps: Value(maxSpeed),
+          avgSpeedMps: Value(moveMs > 0 ? total / (moveMs / 1000) : 0),
+          kcal: Value(kcal),
+        ),
+      );
+
+      // Kilometre splits on the moving-time axis.
+      final crossings = crossingTimes(tMs: moving, distM: dist, stepM: 1000);
+      await _insertSplits(runId, crossings, 1000);
+
+      // Best efforts, top speed and longest run.
+      final efforts = <BestEffortsCompanion>[
+        BestEffortsCompanion.insert(
+          runId: runId,
+          kind: EffortKind.longest,
+          valueM: Value(total),
+        ),
+        BestEffortsCompanion.insert(
+          runId: runId,
+          kind: EffortKind.topSpeed,
+          valueMps: Value(maxSpeed),
+        ),
+      ];
+      for (final e in enduranceEffortTargets.entries) {
+        final best = bestEffort(tMs: moving, distM: dist, targetM: e.value);
+        if (best == null) continue;
+        efforts.add(BestEffortsCompanion.insert(
+          runId: runId,
+          kind: e.key,
+          valueMs: Value(best.durationMs),
+          startSeq: Value(pts[best.startIndex].seq),
+          endSeq: Value(pts[best.endIndex].seq),
+        ));
+      }
+      await _db.batch((b) => b.insertAll(_db.bestEfforts, efforts));
+      return runId;
+    });
+  }
 
   // ---------------------------------------------------------------- profile
 
@@ -84,7 +303,9 @@ class RunRepository {
   // ------------------------------------------------------------------- runs
 
   Stream<List<Run>> watchRuns() => (_db.select(_db.runs)
-        ..where((r) => r.status.equalsValue(RunStatus.active).not())
+        // Unfinished runs (active or paused) are not history yet.
+        ..where((r) =>
+            r.status.isInValues([RunStatus.active, RunStatus.paused]).not())
         ..orderBy([(r) => OrderingTerm.desc(r.startedAt)]))
       .watch();
 

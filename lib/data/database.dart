@@ -118,6 +118,12 @@ class AppDatabase extends _$AppDatabase {
         beforeOpen: (details) async {
           // SQLite ignores ON DELETE CASCADE unless this is on.
           await customStatement('PRAGMA foreign_keys = ON');
+          // The tracking service writes through its own connection while
+          // the UI reads: WAL lets them overlap, busy_timeout waits instead
+          // of failing with "database is locked".
+          await customStatement('PRAGMA busy_timeout = 5000');
+          // journal_mode returns a row, so it must run as a select.
+          await customSelect('PRAGMA journal_mode = WAL').get();
         },
       );
 }

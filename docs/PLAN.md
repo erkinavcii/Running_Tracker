@@ -97,7 +97,7 @@ best_efforts    runId, kind(100m|400m|1k|5k|10k|21k|top_speed|longest),
 
 **En iyi efor (best effort) algoritması:** Kümülatif mesafe/zaman dizisi üzerinde iki işaretçili kayan pencere (O(n)). Her hedef mesafe D için `dist[j] - dist[i] ≥ D` olan en kısa `t[j] - t[i]` bulunur ve hedef mesafeye doğrusal interpolasyonla düzeltilir. Kaydetme anında bir kez hesaplanır.
 
-## 5. Faz C: Arka planda takip ve bildirimden yönetim
+## 5. Faz C: Arka planda takip ve bildirimden yönetim ✔
 
 **İzinler ve sistem ayarları** (sırayla, her biri gerekçesiyle istenir):
 1. `ACCESS_FINE_LOCATION` ("uygulama kullanılırken" yeterli; servis ön plandayken başlatıldığı için arka plan konum izni **gerekmez**).

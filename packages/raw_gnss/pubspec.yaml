@@ -1,0 +1,19 @@
+name: raw_gnss
+description: "Raw fixes from Android's hardware GPS provider (no Fused smoothing). Works in any Flutter engine, including background isolates."
+version: 0.1.0
+publish_to: 'none'
+
+environment:
+  sdk: ^3.7.0
+  flutter: '>=3.29.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: com.example.raw_gnss
+        pluginClass: RawGnssPlugin

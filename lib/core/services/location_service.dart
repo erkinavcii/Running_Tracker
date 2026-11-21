@@ -1,8 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:raw_gnss/raw_gnss.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final locationServiceProvider = Provider<LocationService>((ref) {
@@ -10,12 +10,10 @@ final locationServiceProvider = Provider<LocationService>((ref) {
 });
 
 class LocationService {
-  static const _rawGnssChannel = EventChannel('sprint_tracker/raw_gnss');
-
   // One native GPS subscription shared by every Dart listener: the native
   // side starts on the first listener and stops when the last one leaves.
   StreamController<Position>? _rawController;
-  StreamSubscription<dynamic>? _rawNativeSub;
+  StreamSubscription<GnssFix>? _rawNativeSub;
 
   bool get _isAndroid =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
@@ -23,8 +21,8 @@ class LocationService {
   Stream<Position> _rawGnssStream() {
     _rawController ??= StreamController<Position>.broadcast(
       onListen: () {
-        _rawNativeSub = _rawGnssChannel.receiveBroadcastStream().listen(
-          (event) => _rawController?.add(_positionFromMap(event as Map)),
+        _rawNativeSub = RawGnss.fixes().listen(
+          (fix) => _rawController?.add(positionFromFix(fix)),
           onError: (Object e) => _rawController?.addError(e),
         );
       },
@@ -36,24 +34,19 @@ class LocationService {
     return _rawController!.stream;
   }
 
-  static Position _positionFromMap(Map m) {
-    double d(String k) => (m[k] as num?)?.toDouble() ?? 0.0;
-    return Position(
-      latitude: d('latitude'),
-      longitude: d('longitude'),
-      timestamp: DateTime.fromMillisecondsSinceEpoch(
-          (m['timeMs'] as num).toInt(),
-          isUtc: true),
-      accuracy: d('accuracy'),
-      altitude: d('altitude'),
-      altitudeAccuracy: d('altitudeAccuracy'),
-      heading: d('bearing'),
-      headingAccuracy: d('bearingAccuracy'),
-      speed: d('speed'),
-      speedAccuracy: d('speedAccuracy'),
-      isMocked: m['isMocked'] == true,
-    );
-  }
+  static Position positionFromFix(GnssFix f) => Position(
+        latitude: f.latitude,
+        longitude: f.longitude,
+        timestamp: f.time,
+        accuracy: f.accuracy,
+        altitude: f.altitude,
+        altitudeAccuracy: f.altitudeAccuracy,
+        heading: f.bearing,
+        headingAccuracy: f.bearingAccuracy,
+        speed: f.speed,
+        speedAccuracy: f.speedAccuracy,
+        isMocked: f.isMocked,
+      );
 
   Future<bool> isLocationEnabled() => Geolocator.isLocationServiceEnabled();
 

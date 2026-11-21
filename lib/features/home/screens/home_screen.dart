@@ -1,15 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/format.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/pictogram.dart';
 import '../../sprint/screens/sprint_active_screen.dart';
+import '../../tracking/screens/live_run_screen.dart';
+import '../../tracking/tracking_engine.dart';
+import '../../tracking/tracking_service.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
+  void _openRun(BuildContext context) => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const LiveRunScreen()),
+      );
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final c = AppColors.of(context);
+    final active = ref.watch(trackingProvider).snapshot;
 
     return Scaffold(
       body: SafeArea(
@@ -39,6 +50,10 @@ class HomeScreen extends StatelessWidget {
                 ),
               ],
             ),
+            if (active != null) ...[
+              const SizedBox(height: 20),
+              _ActiveRunBanner(snap: active, onTap: () => _openRun(context)),
+            ],
             const SizedBox(height: 36),
             Text(
               'Choose a mode',
@@ -67,12 +82,13 @@ class HomeScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            const _ModeCard(
+            _ModeCard(
               picto: Picto.jog,
               title: 'Endurance',
-              subtitle: 'Long runs with pace and splits',
-              tag: 'Soon',
-              enabled: false,
+              subtitle: 'Pocket-friendly · controls in the notification',
+              tag: 'Run',
+              enabled: true,
+              onTap: () => _openRun(context),
             ),
             const SizedBox(height: 32),
             const _InfoRow(
@@ -224,6 +240,53 @@ class _InfoRow extends StatelessWidget {
           child: Text(text, style: TextStyle(fontSize: 13.5, color: c.muted)),
         ),
       ],
+    );
+  }
+}
+
+class _ActiveRunBanner extends StatelessWidget {
+  final TrackingSnapshot snap;
+  final VoidCallback onTap;
+
+  const _ActiveRunBanner({required this.snap, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = AppColors.of(context);
+    final paused = snap.status == TrackingStatus.paused;
+    return Material(
+      color: c.accent,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+          child: Row(
+            children: [
+              Icon(
+                paused ? Icons.pause_circle_rounded : Icons.directions_run_rounded,
+                color: c.onAccent,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  '${paused ? 'Run paused' : 'Run in progress'} · '
+                  '${formatDistance(snap.distanceM)} · '
+                  '${formatClock(Duration(milliseconds: snap.movingMs))}',
+                  style: TextStyle(
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w700,
+                    color: c.onAccent,
+                    fontFeatures: tabularFigures,
+                  ),
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded, color: c.onAccent),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

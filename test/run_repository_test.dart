@@ -124,4 +124,81 @@ void main() {
     await repo.updateNote(id, '   ');
     expect((await repo.getRun(id))!.note, isNull);
   });
+
+  group('endurance runs', () {
+    // 3 m/s northwards, one fix per second, segment change after a pause.
+    List<StoredPoint> points({required int from, required int n,
+        int segment = 0, double speed = 3}) => [
+      for (var i = 0; i < n; i++)
+        StoredPoint(
+          tMs: (from + i) * 1000,
+          lat: 41 + speed * (from + i) / 111195,
+          lon: 29,
+          speedMps: speed,
+          accM: 4,
+          segment: segment,
+        ),
+    ];
+
+    test('progress is saved and an unfinished run is found', () async {
+      final id = await repo.createEnduranceRun(DateTime.utc(2026, 11, 21));
+      await repo.saveProgress(id, 0, points(from: 0, n: 10),
+          const RunProgress(
+            status: RunStatus.paused,
+            elapsedMs: 9000,
+            movingMs: 9000,
+            distanceM: 27,
+            maxSpeedMps: 3,
+          ));
+      final run = (await repo.getUnfinishedRun())!;
+      expect(run.id, id);
+      expect(run.status, RunStatus.paused);
+      expect((await repo.lastPoint(id))!.seq, 9);
+      // Not listed in history while active.
+      expect(await repo.watchRuns().first, isEmpty);
+    });
+
+    test('finish computes distance, km splits and best efforts', () async {
+      final id = await repo.createEnduranceRun(DateTime.utc(2026, 11, 21));
+      // 0..700 s in segment 0 (2100 m), pause, 800..1000 s in segment 1.
+      await repo.saveProgress(id, 0, points(from: 0, n: 701),
+          const RunProgress(status: RunStatus.active, elapsedMs: 0,
+              movingMs: 0, distanceM: 0, maxSpeedMps: 0));
+      await repo.saveProgress(id, 701, points(from: 800, n: 201, segment: 1),
+          const RunProgress(status: RunStatus.active, elapsedMs: 0,
+              movingMs: 0, distanceM: 0, maxSpeedMps: 0));
+
+      final saved = await repo.finishEndurance(
+        id,
+        endedAt: DateTime.utc(2026, 11, 21, 0, 17),
+        elapsedMs: 1000000,
+        movingMs: 900000,
+        kcal: 120,
+      );
+      expect(saved, id);
+      final run = (await repo.getRun(id))!;
+      expect(run.status, RunStatus.finished);
+      expect(run.distanceM, closeTo(2700, 0.5)); // 2100 + 600, pause skipped
+      expect(run.avgSpeedMps, closeTo(3, 0.01));
+
+      final splits = await repo.watchSplits(id).first;
+      expect(splits, hasLength(2)); // 1 km and 2 km
+      // Moving-time axis: 1000 m at 3 m/s ≈ 333 s each.
+      expect(splits.first.durationMs, closeTo(333333, 1000));
+
+      final r = await repo.watchRecords().first;
+      expect(r.best[EffortKind.best1k]!.value, closeTo(333333, 1000));
+      expect(r.best[EffortKind.longest]!.value, closeTo(2700, 0.5));
+      expect(r.best.containsKey(EffortKind.best5k), isFalse);
+      expect(await repo.getUnfinishedRun(), isNull);
+    });
+
+    test('a run without fixes is discarded on finish', () async {
+      final id = await repo.createEnduranceRun(DateTime.utc(2026, 11, 21));
+      final saved = await repo.finishEndurance(id,
+          endedAt: DateTime.utc(2026, 11, 21), elapsedMs: 5000, movingMs: 5000);
+      expect(saved, isNull);
+      expect(await repo.getRun(id), isNull);
+    });
+  });
 }
