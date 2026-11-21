@@ -16,6 +16,7 @@ void main() {
     await tester.pumpWidget(const ProviderScope(child: SprintTrackerApp()));
 
     // Verify that the Sprint Mode button is present
-    expect(find.text('Sprint Mode (100m)'), findsOneWidget);
+    expect(find.text('Sprint'), findsOneWidget);
+    expect(find.text('Endurance'), findsOneWidget);
   });
 }

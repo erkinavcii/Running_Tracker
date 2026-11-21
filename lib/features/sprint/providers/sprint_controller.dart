@@ -13,6 +13,8 @@ class SprintData {
   final Duration elapsed;
   final int countdown;
   final String debugLog;
+  final double? gpsAccuracy; // Last fix horizontal accuracy (m), null = no fix
+  final bool gpsLost;
 
   SprintData({
     required this.state,
@@ -22,6 +24,8 @@ class SprintData {
     this.elapsed = Duration.zero,
     this.countdown = 3,
     this.debugLog = '',
+    this.gpsAccuracy,
+    this.gpsLost = false,
   });
 
   SprintData copyWith({
@@ -32,6 +36,8 @@ class SprintData {
     Duration? elapsed,
     int? countdown,
     String? debugLog,
+    double? gpsAccuracy,
+    bool? gpsLost,
   }) {
     return SprintData(
       state: state ?? this.state,
@@ -41,6 +47,8 @@ class SprintData {
       elapsed: elapsed ?? this.elapsed,
       countdown: countdown ?? this.countdown,
       debugLog: debugLog ?? this.debugLog,
+      gpsAccuracy: gpsAccuracy ?? this.gpsAccuracy,
+      gpsLost: gpsLost ?? this.gpsLost,
     );
   }
 }
@@ -60,7 +68,8 @@ class SprintController extends StateNotifier<SprintData> {
   StreamSubscription? _fusionSub;
   Timer? _countdownTimer;
   Timer? _runTimer;
-  DateTime? _startTime;
+  Duration _prevElapsed = Duration.zero;
+  double _prevDistance = 0.0;
 
   // Configuration
   final double targetDistance = 100.0; // 100 meters sprint
@@ -68,29 +77,52 @@ class SprintController extends StateNotifier<SprintData> {
   SprintController(this._fusionService, this._locationService)
       : super(SprintData(state: SprintState.calibrating));
 
-  void startCalibration() {
+  Future<void> startCalibration() async {
     state = SprintData(state: SprintState.calibrating);
     _calibrationSub?.cancel();
 
-    // Relaxed accuracy requirement and added timeout so it doesn't hang forever
+    // Location permission must be granted before any GNSS stream is opened.
+    final hasPermission = await _locationService.handlePermissions();
+    if (!mounted) return;
+    if (!hasPermission) {
+      state = state.copyWith(
+        debugLog: 'Location permission denied or location is off.\n'
+            'Enable it and reopen this screen.',
+      );
+      return;
+    }
+
+    // Wait for a good fix (or time out). The subscription is kept alive
+    // after calibration so the GNSS chip stays warm until the run starts;
+    // otherwise the first seconds of the sprint would have no fixes.
     bool isCalibrated = false;
 
     _calibrationSub = _locationService.getPositionStream().listen((position) {
-      if (!isCalibrated && position.accuracy <= 20.0) {
+      if (!mounted) return;
+      state = state.copyWith(gpsAccuracy: position.accuracy);
+      if (!isCalibrated && position.accuracy <= 10.0) {
         isCalibrated = true;
-        _calibrationSub?.cancel();
         state = state.copyWith(state: SprintState.ready);
       }
     });
 
-    // Timeout: If we can't get good GPS in 5 seconds, just let the user run anyway
-    Future.delayed(const Duration(seconds: 5), () {
+    // Timeout: If we can't get good GPS in 15 seconds, just let the user run anyway
+    Future.delayed(const Duration(seconds: 15), () {
+      if (!mounted) return;
       if (!isCalibrated && state.state == SprintState.calibrating) {
         isCalibrated = true;
-        _calibrationSub?.cancel();
         state = state.copyWith(state: SprintState.ready);
       }
     });
+  }
+
+  /// Abort a run without saving a result.
+  void cancelRun() {
+    _countdownTimer?.cancel();
+    _fusionService.stopFusionStream();
+    _fusionSub?.cancel();
+    _runTimer?.cancel();
+    startCalibration();
   }
 
   void startCountdown() {
@@ -115,50 +147,83 @@ class SprintController extends StateNotifier<SprintData> {
       distanceRun: 0,
       currentSpeed: 0,
       maxSpeed: 0,
+      elapsed: Duration.zero,
     );
-    _startTime = DateTime.now();
+    _prevElapsed = Duration.zero;
+    _prevDistance = 0.0;
 
-    // Start precision timer for UI
-    _runTimer?.cancel();
-    _runTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
-      if (_startTime != null) {
-        final elapsed = DateTime.now().difference(_startTime!);
-        state = state.copyWith(elapsed: elapsed);
-      }
-    });
-
-    // Start Sensor Fusion algorithm
+    // Start Sensor Fusion algorithm. Its monotonic clock is the race clock,
+    // so the displayed time and the finish-line interpolation share one base.
     _fusionSub?.cancel();
-    _fusionSub = _fusionService.startFusionStream().listen((data) {
-      final newMaxSpeed =
-          data.speedMps > state.maxSpeed ? data.speedMps : state.maxSpeed;
+    _fusionSub = _fusionService.startFusionStream().listen(_onFusion);
+    // Fusion now holds its own GNSS request; release the warm-up one.
+    _calibrationSub?.cancel();
+    _calibrationSub = null;
 
-      state = state.copyWith(
-        currentSpeed: data.speedMps,
-        maxSpeed: newMaxSpeed,
-        distanceRun: data.distanceMeters,
-        debugLog: data.rawDebugLog.isNotEmpty ? data.rawDebugLog : state.debugLog,
-      );
-
-      // Auto-stop condition
-      if (state.distanceRun >= targetDistance) {
-        stopRunning();
+    // UI refresh for the stopwatch between fusion events.
+    _runTimer?.cancel();
+    final uiClock = Stopwatch()..start();
+    _runTimer = Timer.periodic(const Duration(milliseconds: 50), (_) {
+      if (state.state != SprintState.running) return;
+      if (uiClock.elapsed > state.elapsed) {
+        state = state.copyWith(elapsed: uiClock.elapsed);
       }
     });
   }
 
+  void _onFusion(FusionData data) {
+    if (state.state != SprintState.running) return;
+
+    final newMaxSpeed =
+        data.speedMps > state.maxSpeed ? data.speedMps : state.maxSpeed;
+
+    // Finish line crossed between two fusion samples: interpolate the exact
+    // crossing time instead of using the (later) sample time.
+    // Only trust it once at least one real GNSS fix arrived.
+    if (data.gpsFixCount > 0 && data.distanceMeters >= targetDistance) {
+      final dd = data.distanceMeters - _prevDistance;
+      final frac = dd > 0 ? (targetDistance - _prevDistance) / dd : 1.0;
+      final dtUs = (data.elapsed - _prevElapsed).inMicroseconds;
+      final crossing = _prevElapsed +
+          Duration(microseconds: (dtUs * frac.clamp(0.0, 1.0)).round());
+      state = state.copyWith(
+        maxSpeed: newMaxSpeed,
+        distanceRun: targetDistance,
+        elapsed: crossing,
+        debugLog: data.rawDebugLog.isNotEmpty ? data.rawDebugLog : null,
+      );
+      stopRunning();
+      return;
+    }
+
+    _prevElapsed = data.elapsed;
+    _prevDistance = data.distanceMeters;
+
+    state = state.copyWith(
+      currentSpeed: data.speedMps,
+      maxSpeed: newMaxSpeed,
+      distanceRun: data.distanceMeters,
+      elapsed: data.elapsed > state.elapsed ? data.elapsed : null,
+      gpsAccuracy: data.lastValidPosition?.accuracy,
+      gpsLost: data.gpsLost,
+      debugLog: data.rawDebugLog.isNotEmpty ? data.rawDebugLog : null,
+    );
+  }
+
   void stopRunning() {
+    _calibrationSub?.cancel();
+    _calibrationSub = null;
     _fusionService.stopFusionStream();
     _fusionSub?.cancel();
     _runTimer?.cancel();
 
-    // Snap distance to exact target if slightly over
-    final finalDist =
-        state.distanceRun > targetDistance ? targetDistance : state.distanceRun;
+    if (state.state != SprintState.running) return;
 
     state = state.copyWith(
       state: SprintState.finished,
-      distanceRun: finalDist,
+      distanceRun: state.distanceRun > targetDistance
+          ? targetDistance
+          : state.distanceRun,
       currentSpeed: 0.0,
     );
   }

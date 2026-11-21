@@ -1,106 +1,229 @@
 import 'package:flutter/material.dart';
+
+import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/pictogram.dart';
 import '../../sprint/screens/sprint_active_screen.dart';
 
 class HomeScreen extends StatelessWidget {
-  const HomeScreen({Key? key}) : super(key: key);
+  const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Running Tracker'),
-        centerTitle: true,
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 28, 20, 24),
           children: [
-            const Text(
-              'Select Mode',
-              style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
+            Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: c.accent,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  alignment: Alignment.center,
+                  child: Pictogram(Picto.sprint, size: 28, color: c.onAccent),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  'Sprint Tracker',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: c.ink,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 40),
-            _buildModeButton(
-              context,
-              title: 'Sprint Mode (100m)',
-              subtitle: 'High accuracy tracking for max speed',
-              icon: Icons.speed,
-              color: Colors.redAccent,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const SprintActiveScreen()),
-                );
-              },
+            const SizedBox(height: 36),
+            Text(
+              'Choose a mode',
+              style: TextStyle(
+                fontSize: 30,
+                height: 1.15,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.5,
+                color: c.ink,
+              ),
             ),
-            const SizedBox(height: 20),
-            _buildModeButton(
-              context,
-              title: 'Endurance Mode',
-              subtitle: 'Standard tracking for longer runs',
-              icon: Icons.directions_run,
-              color: Colors.blueAccent,
-              onTap: () {
-                // TODO: Navigate to Endurance Active Screen
-              },
+            const SizedBox(height: 8),
+            Text(
+              'Raw GNSS Doppler speed, filtered with the accelerometer.',
+              style: TextStyle(fontSize: 15, height: 1.4, color: c.muted),
+            ),
+            const SizedBox(height: 28),
+            _ModeCard(
+              picto: Picto.sprint,
+              title: 'Sprint',
+              subtitle: '100 m dash · auto start & finish',
+              tag: '100 m',
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SprintActiveScreen()),
+              ),
+            ),
+            const SizedBox(height: 12),
+            const _ModeCard(
+              picto: Picto.jog,
+              title: 'Endurance',
+              subtitle: 'Long runs with pace and splits',
+              tag: 'Soon',
+              enabled: false,
+            ),
+            const SizedBox(height: 32),
+            const _InfoRow(
+              icon: Icons.satellite_alt_outlined,
+              text: 'Stand outside with a clear view of the sky.',
+            ),
+            const SizedBox(height: 10),
+            const _InfoRow(
+              icon: Icons.front_hand_outlined,
+              text: 'Hold the phone firmly or use an armband.',
             ),
           ],
         ),
       ),
     );
   }
+}
 
-  Widget _buildModeButton(
-    BuildContext context, {
-    required String title,
-    required String subtitle,
-    required IconData icon,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color.withOpacity(0.5), width: 2),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: 48, color: color),
-            const SizedBox(width: 20),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: color,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[700],
-                    ),
-                  ),
-                ],
+class _ModeCard extends StatelessWidget {
+  final Picto picto;
+  final String title;
+  final String subtitle;
+  final String tag;
+  final bool enabled;
+  final VoidCallback? onTap;
+
+  const _ModeCard({
+    required this.picto,
+    required this.title,
+    required this.subtitle,
+    required this.tag,
+    this.enabled = true,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = AppColors.of(context);
+    final fg = enabled ? c.ink : c.muted;
+
+    return Material(
+      color: c.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(color: c.line),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: enabled ? onTap : null,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 12, 16),
+          child: Row(
+            children: [
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: enabled ? c.accent : c.line,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                alignment: Alignment.center,
+                child: Pictogram(
+                  picto,
+                  size: 46,
+                  color: enabled ? c.onAccent : c.muted,
+                ),
               ),
-            ),
-          ],
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          title,
+                          style: TextStyle(
+                            fontSize: 19,
+                            fontWeight: FontWeight.w700,
+                            color: fg,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        _Tag(text: tag, highlighted: enabled),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: TextStyle(fontSize: 14, color: c.muted),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: enabled ? c.ink : c.line,
+              ),
+            ],
+          ),
         ),
       ),
+    );
+  }
+}
+
+class _Tag extends StatelessWidget {
+  final String text;
+  final bool highlighted;
+
+  const _Tag({required this.text, required this.highlighted});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = AppColors.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: highlighted ? c.accent : c.line),
+      ),
+      child: Text(
+        text.toUpperCase(),
+        style: TextStyle(
+          fontSize: 10.5,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.6,
+          color: highlighted ? c.accent : c.muted,
+        ),
+      ),
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  final IconData icon;
+  final String text;
+
+  const _InfoRow({required this.icon, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = AppColors.of(context);
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: c.muted),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(text, style: TextStyle(fontSize: 13.5, color: c.muted)),
+        ),
+      ],
     );
   }
 }
